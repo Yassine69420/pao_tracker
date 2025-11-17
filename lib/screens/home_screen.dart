@@ -10,18 +10,6 @@ import 'detail_screen.dart';
 // Enum for the filter chips
 enum ProductFilter { all, favorites, expiring, expired, safe }
 
-// --- NEW ---
-// Enum for the sort options
-enum ProductSort {
-  expirySoonest,
-  expiryFarthest,
-  nameAZ,
-  nameZA,
-  dateAddedNewest,
-  dateAddedOldest,
-}
-// --- END NEW ---
-
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -31,10 +19,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _searchQuery = '';
   ProductFilter _selectedFilter = ProductFilter.all;
-  // --- NEW ---
-  // Default sort is Expiry (Soonest)
-  ProductSort _selectedSort = ProductSort.expirySoonest;
-  // --- END NEW ---
 
   @override
   void initState() {
@@ -59,55 +43,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  // --- NEW ---
-  /// Client-side sorting based on the selected option
-  List<ProductItem> _getSortedProducts(
-    List<ProductItem> products,
-    ProductSort sort,
-  ) {
-    // Create a mutable copy to avoid modifying the original list
-    final sortedList = List<ProductItem>.from(products);
-
-    switch (sort) {
-      case ProductSort.expirySoonest:
-        // Sort by remainingDays, ascending (soonest first)
-        sortedList.sort((a, b) => a.remainingDays.compareTo(b.remainingDays));
-        break;
-      case ProductSort.expiryFarthest:
-        // Sort by remainingDays, descending (farthest first)
-        sortedList.sort((a, b) => b.remainingDays.compareTo(a.remainingDays));
-        break;
-      case ProductSort.nameAZ:
-        // Sort by name, A-Z (case-insensitive)
-        sortedList.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        );
-        break;
-      case ProductSort.nameZA:
-        // Sort by name, Z-A (case-insensitive)
-        sortedList.sort(
-          (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()),
-        );
-        break;
-      case ProductSort.dateAddedNewest:
-        // Sort by dateAdded, descending (newest first)
-        sortedList.sort((a, b) => b.openedDate.compareTo(a.openedDate));
-        break;
-      case ProductSort.dateAddedOldest:
-        // Sort by dateAdded, ascending (oldest first)
-        sortedList.sort((a, b) => a.openedDate.compareTo(b.openedDate));
-        break;
-    }
-    return sortedList;
-  }
-  // --- END NEW ---
-
   /// Client-side filtering based on the selected chip
   List<ProductItem> _getFilteredProducts(
     List<ProductItem> products,
     ProductFilter filter,
   ) {
-    // Note: The `products` list passed in is already sorted.
     switch (filter) {
       case ProductFilter.favorites:
         return products.where((p) => p.favorite).toList();
@@ -202,47 +142,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         elevation: 0,
         scrolledUnderElevation: 0, // Prevents tint on scroll
         actions: [
-          // --- NEW: Sort Button ---
-          PopupMenuButton<ProductSort>(
-            icon: const Icon(Icons.sort_rounded),
-            tooltip: 'Sort',
-            onSelected: (ProductSort result) {
-              // Update the state to trigger a rebuild with the new sort
-              setState(() {
-                _selectedSort = result;
-              });
-            },
-            itemBuilder: (BuildContext context) =>
-                <PopupMenuEntry<ProductSort>>[
-                  const PopupMenuItem<ProductSort>(
-                    value: ProductSort.expirySoonest,
-                    child: Text('Expiry (Soonest)'),
-                  ),
-                  const PopupMenuItem<ProductSort>(
-                    value: ProductSort.expiryFarthest,
-                    child: Text('Expiry (Farthest)'),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem<ProductSort>(
-                    value: ProductSort.nameAZ,
-                    child: Text('Name (A-Z)'),
-                  ),
-                  const PopupMenuItem<ProductSort>(
-                    value: ProductSort.nameZA,
-                    child: Text('Name (Z-A)'),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem<ProductSort>(
-                    value: ProductSort.dateAddedNewest,
-                    child: Text('Date Added (Newest)'),
-                  ),
-                  const PopupMenuItem<ProductSort>(
-                    value: ProductSort.dateAddedOldest,
-                    child: Text('Date Added (Oldest)'),
-                  ),
-                ],
-          ),
-          // --- END NEW ---
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () {
@@ -324,19 +223,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Expanded(
             child: productListAsync.when(
               data: (products) {
-                // --- MODIFICATION: Apply sort *before* filter ---
-                // 1. Apply sorting based on the selected state
-                final sortedProducts = _getSortedProducts(
-                  products,
-                  _selectedSort,
-                );
-
-                // 2. Apply filtering to the *sorted* list
+                // Apply filtering to the list
                 final displayedProducts = _getFilteredProducts(
-                  sortedProducts, // Pass sorted list to filter
+                  products,
                   _selectedFilter,
                 );
-                // --- END MODIFICATION ---
 
                 if (displayedProducts.isEmpty) {
                   // Pass the original *unsorted* list length to check if DB is empty
