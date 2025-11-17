@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/product_item.dart';
 import '../providers/product_provider.dart';
+// Kept for semantic colors (expired, warning, success)
 import '../utils/colors.dart';
 import 'add_edit_screen.dart';
 
@@ -14,12 +15,16 @@ class DetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productAsync = ref.watch(productProvider(productId));
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      // --- UPDATED: Use theme color ---
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Product Details'),
-        backgroundColor: AppColors.surface,
+        // --- UPDATED: Use theme color ---
+        backgroundColor: colorScheme.surface,
         elevation: 0,
         actions: [
           // --- MODIFICATION START ---
@@ -31,7 +36,8 @@ class DetailScreen extends ConsumerWidget {
                       product.favorite
                           ? Icons.favorite
                           : Icons.favorite_border_outlined,
-                      color: product.favorite ? AppColors.error : null,
+                      // --- UPDATED: Use theme color ---
+                      color: product.favorite ? colorScheme.error : null,
                     ),
                     onPressed: () => _toggleFavorite(ref, product, context),
                   )
@@ -61,7 +67,8 @@ class DetailScreen extends ConsumerWidget {
                   Icon(
                     Icons.search_off_rounded,
                     size: 64,
-                    color: AppColors.onSurfaceVariant.withOpacity(0.5),
+                    // --- UPDATED: Use theme color ---
+                    color: colorScheme.onSurfaceVariant.withOpacity(0.5),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -84,14 +91,18 @@ class DetailScreen extends ConsumerWidget {
                 Icon(
                   Icons.error_outline_rounded,
                   size: 64,
-                  color: AppColors.error,
+                  // --- UPDATED: Use theme color ---
+                  color: colorScheme.error,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Error loading product',
                   style: Theme.of(
                     context,
-                  ).textTheme.titleLarge?.copyWith(color: AppColors.error),
+                  ).textTheme.titleLarge?.copyWith(
+                        // --- UPDATED: Use theme color ---
+                        color: colorScheme.error,
+                      ),
                 ),
                 const SizedBox(height: 8),
                 Text(error.toString(), textAlign: TextAlign.center),
@@ -110,6 +121,8 @@ class DetailScreen extends ConsumerWidget {
     ProductItem product,
     BuildContext context,
   ) async {
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
     try {
       final updatedProduct = product.copyWith(favorite: !product.favorite);
       // Call the update method from the provider
@@ -141,7 +154,8 @@ class DetailScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update favorite: $e'),
-          backgroundColor: AppColors.error,
+          // --- UPDATED: Use theme color ---
+          backgroundColor: colorScheme.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -177,6 +191,9 @@ class _ProductDetailContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
+
     final remainingDays = product.remainingDays;
     final progress = _calculateProgress();
 
@@ -212,16 +229,17 @@ class _ProductDetailContent extends ConsumerWidget {
                   Text(
                     product.name,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
                   if (product.brand != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       product.brand!,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                      ),
+                            // --- UPDATED: Use theme color ---
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                     ),
                   ],
                 ],
@@ -236,7 +254,9 @@ class _ProductDetailContent extends ConsumerWidget {
         // Expiry progress card
         Card(
           elevation: 2,
-          shadowColor: _getProgressColor(remainingDays).withOpacity(0.3),
+          // --- UPDATED: Pass context ---
+          shadowColor:
+              _getProgressColor(remainingDays, context).withOpacity(0.3),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -244,13 +264,14 @@ class _ProductDetailContent extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.schedule_outlined, color: AppColors.primary),
+                    // --- UPDATED: Use theme color ---
+                    Icon(Icons.schedule_outlined, color: colorScheme.primary),
                     const SizedBox(width: 8),
                     Text(
                       'Expiry Timeline',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                   ],
                 ),
@@ -262,8 +283,10 @@ class _ProductDetailContent extends ConsumerWidget {
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 12,
-                    backgroundColor: AppColors.surfaceVariant,
-                    color: _getProgressColor(remainingDays),
+                    // --- UPDATED: Use theme color ---
+                    backgroundColor: colorScheme.surfaceVariant,
+                    // --- UPDATED: Pass context ---
+                    color: _getProgressColor(remainingDays, context),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -294,7 +317,9 @@ class _ProductDetailContent extends ConsumerWidget {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: _getProgressColor(remainingDays).withOpacity(0.15),
+                      // --- UPDATED: Pass context ---
+                      color: _getProgressColor(remainingDays, context)
+                          .withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -306,7 +331,8 @@ class _ProductDetailContent extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 36,
                             fontWeight: FontWeight.bold,
-                            color: _getProgressColor(remainingDays),
+                            // --- UPDATED: Pass context ---
+                            color: _getProgressColor(remainingDays, context),
                             height: 1,
                           ),
                         ),
@@ -318,7 +344,8 @@ class _ProductDetailContent extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: _getProgressColor(remainingDays),
+                            // --- UPDATED: Pass context ---
+                            color: _getProgressColor(remainingDays, context),
                           ),
                         ),
                       ],
@@ -335,22 +362,29 @@ class _ProductDetailContent extends ConsumerWidget {
         // Restyled info cards to be side-by-side
         Column(
           children: [
-            _InfoCard(
-              icon: Icons.label_outlined,
-              title: 'PAO Label',
-              value: product.label,
-              color: AppColors.primary,
-            ),
-            const SizedBox(height: 12), // vertical spacing instead of width
-            _InfoCard(
-              icon: Icons.hourglass_bottom_outlined,
-              title: 'Shelf Life',
-              value:
-                  '${product.shelfLifeDays} days (≈${(product.shelfLifeDays / 30).round()} months)',
-              color: AppColors.secondary,
-            ),
+            if (product.label != null && product.label!.isNotEmpty) ...[
+              _InfoCard(
+                icon: Icons.label_outlined,
+                title: 'PAO Label',
+                value: product.label!, // MODIFIED: Added null check
+                // --- UPDATED: Use theme color ---
+                color: colorScheme.primary,
+              ),
+              const SizedBox(height: 12), // spacing only if the card is shown
+              _InfoCard(
+                icon: Icons.hourglass_bottom_outlined,
+                title: 'Shelf Life',
+                value:
+                    '${product.shelfLifeDays} days (≈${(product.shelfLifeDays / 30).round()} months)',
+                // --- UPDATED: Use theme color ---
+                color: colorScheme.secondary,
+              ),
+            ],
           ],
         ),
+
+        const SizedBox(height: 16),
+
         // --- MODIFICATION END ---
         // Notes
         if (product.notes != null && product.notes!.isNotEmpty) ...[
@@ -363,11 +397,14 @@ class _ProductDetailContent extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.note_outlined, color: AppColors.tertiary),
+                      // --- UPDATED: Use theme color ---
+                      Icon(Icons.note_outlined, color: colorScheme.tertiary),
                       const SizedBox(width: 8),
                       Text(
                         'Notes',
-                        style: Theme.of(context).textTheme.titleMedium
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -384,7 +421,8 @@ class _ProductDetailContent extends ConsumerWidget {
                             width: 6,
                             height: 6,
                             decoration: BoxDecoration(
-                              color: AppColors.tertiary,
+                              // --- UPDATED: Use theme color ---
+                              color: colorScheme.tertiary,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -412,8 +450,9 @@ class _ProductDetailContent extends ConsumerWidget {
           icon: const Icon(Icons.delete_outline),
           label: const Text('Delete Product'),
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.error,
-            side: BorderSide(color: AppColors.error),
+            // --- UPDATED: Use theme color ---
+            foregroundColor: colorScheme.error,
+            side: BorderSide(color: colorScheme.error),
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
         ),
@@ -424,16 +463,25 @@ class _ProductDetailContent extends ConsumerWidget {
 
   double _calculateProgress() {
     final totalDays = product.shelfLifeDays;
+    // Prevent division by zero if shelfLifeDays is 0
+    if (totalDays == 0) {
+      // If not opened, progress is 0. If opened and no shelf life, treat as 100% elapsed.
+      return product.isOpened ? 1.0 : 0.0;
+    }
     final elapsed = DateTime.now().difference(product.openedDate).inDays;
     final progress = elapsed / totalDays;
     return progress.clamp(0.0, 1.0);
   }
 
-  Color _getProgressColor(int remainingDays) {
-    if (remainingDays < 0) return AppColors.expired;
-    if (remainingDays <= 7) return AppColors.warning;
-    if (remainingDays <= 30) return AppColors.primary;
-    return AppColors.success;
+  // --- UPDATED: Pass context to get theme colors ---
+  Color _getProgressColor(int remainingDays, BuildContext context) {
+    if (remainingDays < 0) return AppColors.expired; // Keep semantic color
+    if (remainingDays <= 7) return AppColors.warning; // Keep semantic color
+    if (remainingDays <= 30) {
+      // --- UPDATED: Use theme color ---
+      return Theme.of(context).colorScheme.primary;
+    }
+    return AppColors.success; // Keep semantic color
   }
 
   void _deleteProduct(BuildContext context, WidgetRef ref) async {
@@ -452,7 +500,9 @@ class _ProductDetailContent extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            // --- UPDATED: Use theme color ---
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error),
             child: const Text('Delete'),
           ),
         ],
@@ -487,17 +537,22 @@ class _DateInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(icon, size: 16, color: AppColors.onSurfaceVariant),
+            // --- UPDATED: Use theme color ---
+            Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
-                color: AppColors.onSurfaceVariant,
+                // --- UPDATED: Use theme color ---
+                color: colorScheme.onSurfaceVariant,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -547,6 +602,9 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -568,7 +626,8 @@ class _InfoCard extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-                      color: AppColors.onSurfaceVariant,
+                      // --- UPDATED: Use theme color ---
+                      color: colorScheme.onSurfaceVariant,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),

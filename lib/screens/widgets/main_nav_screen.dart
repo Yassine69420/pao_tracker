@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:pao_tracker/screens/home_screen.dart';
 import 'package:pao_tracker/screens/settings_screen.dart';
 import 'package:pao_tracker/screens/statistics_screen.dart';
-import 'package:pao_tracker/utils/colors.dart';
+// No longer need to import AppColors here
+// import 'package:pao_tracker/utils/colors.dart';
 
 class MainNavScreen extends StatefulWidget {
   const MainNavScreen({super.key});
@@ -15,6 +16,8 @@ class _MainNavScreenState extends State<MainNavScreen>
     with TickerProviderStateMixin {
   int _selectedIndex = 0;
 
+  // Assuming these screens exist at the paths.
+  // If not, you might need to create placeholder widgets.
   final List<Widget> _screens = const [
     HomeScreen(),
     StatisticsScreen(),
@@ -29,17 +32,24 @@ class _MainNavScreenState extends State<MainNavScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Get the current theme and color scheme
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
       extendBody: true, // Allows BottomNavigationBar to float
       body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: Container(
         margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          // UPDATED: Use theme-aware color for the container.
+          // Using surfaceVariant provides a nice contrast from the main scaffold.
+          color: colorScheme.surfaceVariant,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              // UPDATED: Use the theme's shadow color for a consistent look
+              color: theme.shadowColor.withOpacity(0.1),
               blurRadius: 10,
               offset: const Offset(0, 5),
             ),
@@ -50,10 +60,13 @@ class _MainNavScreenState extends State<MainNavScreen>
           child: BottomNavigationBar(
             currentIndex: _selectedIndex,
             onTap: _onTabSelected,
-            backgroundColor: AppColors.surface,
+            // UPDATED: Use the same theme-aware color for the bar
+            backgroundColor: colorScheme.surfaceVariant,
             type: BottomNavigationBarType.fixed,
-            selectedItemColor: AppColors.primary,
-            unselectedItemColor: AppColors.onSurfaceVariant.withOpacity(0.7),
+            // UPDATED: Use the theme's primary color
+            selectedItemColor: colorScheme.primary,
+            // UPDATED: Use the theme's 'onSurfaceVariant' color
+            unselectedItemColor: colorScheme.onSurfaceVariant.withOpacity(0.7),
             showUnselectedLabels: true,
             items: const [
               BottomNavigationBarItem(

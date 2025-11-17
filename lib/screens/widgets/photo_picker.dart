@@ -1,8 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:pao_tracker/utils/colors.dart';
-
+// import 'package:pao_tracker/utils/colors.dart'; // No longer needed
 
 class PhotoPicker extends StatefulWidget {
   final String? photoPath;
@@ -32,7 +31,10 @@ class _PhotoPickerState extends State<PhotoPicker> {
 
   @override
   Widget build(BuildContext context) {
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
     final p = widget.photoPath;
+
     return Center(
       child: GestureDetector(
         onTap: _pickImage,
@@ -40,9 +42,10 @@ class _PhotoPickerState extends State<PhotoPicker> {
           width: 160,
           height: 160,
           decoration: BoxDecoration(
-            color: AppColors.surfaceVariant,
+            // --- UPDATED: Use theme colors ---
+            color: colorScheme.surfaceVariant,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.outline, width: 1.5),
+            border: Border.all(color: colorScheme.outline, width: 1.5),
           ),
           child: p != null
               ? ClipRRect(
@@ -57,35 +60,40 @@ class _PhotoPickerState extends State<PhotoPicker> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: AppColors.surface.withOpacity(0.9),
+                            // --- UPDATED: Use theme colors ---
+                            color: colorScheme.surface.withOpacity(0.9),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             Icons.edit,
                             size: 20,
-                            color: AppColors.primary,
+                            // --- UPDATED: Use theme colors ---
+                            color: colorScheme.primary,
                           ),
                         ),
                       ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: GestureDetector(
-                          onTap: widget.onRemove,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.error.withOpacity(0.95),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              size: 20,
-                              color: Colors.white,
+                      if (widget.onRemove != null) // Only show remove if callback is provided
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: GestureDetector(
+                            onTap: widget.onRemove,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                // --- UPDATED: Use theme colors ---
+                                color: colorScheme.error.withOpacity(0.95),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.close,
+                                size: 20,
+                                // --- UPDATED: Use theme colors ---
+                                color: colorScheme.onError,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 )
@@ -95,13 +103,15 @@ class _PhotoPickerState extends State<PhotoPicker> {
                     Icon(
                       Icons.add_photo_alternate_outlined,
                       size: 44,
-                      color: AppColors.onSurfaceVariant,
+                      // --- UPDATED: Use theme colors ---
+                      color: colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(height: 10),
                     Text(
                       'Add Photo',
                       style: TextStyle(
-                        color: AppColors.onSurfaceVariant,
+                        // --- UPDATED: Use theme colors ---
+                        color: colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

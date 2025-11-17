@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-/// Model representing a product item with PAO information.
+/// Model representing a product item with PAO and expiry information.
 class ProductItem {
   // Database table and column names
   static const String tableName = 'product_items';
@@ -9,19 +9,25 @@ class ProductItem {
   static const String colBrand = 'brand';
   static const String colOpenedDate = 'opened_date';
   static const String colShelfLifeDays = 'shelf_life_days';
+  static const String colExpiryDate = 'expiry_date';
+  // --- NEW FIELD ---
+  static const String colUnopenedExpiryDate = 'unopened_expiry_date';
+  static const String colIsOpened = 'is_opened';
   static const String colLabel = 'label';
   static const String colPhotoPath = 'photo_path';
   static const String colFavorite = 'favorite';
   static const String colNotes = 'notes';
 
-  static const String createTable =
-      '''
+  static const String createTable = '''
 CREATE TABLE $tableName (
   $colId TEXT PRIMARY KEY,
   $colName TEXT NOT NULL,
   $colBrand TEXT,
   $colOpenedDate INTEGER NOT NULL,
   $colShelfLifeDays INTEGER NOT NULL,
+  $colExpiryDate INTEGER NOT NULL,
+  $colUnopenedExpiryDate INTEGER, 
+  $colIsOpened INTEGER NOT NULL,
   $colLabel TEXT NOT NULL,
   $colPhotoPath TEXT,
   $colFavorite INTEGER NOT NULL,
@@ -34,6 +40,9 @@ CREATE TABLE $tableName (
   final String? brand;
   final DateTime openedDate;
   final int shelfLifeDays;
+  final DateTime expiryDate;
+  final DateTime? unopenedExpiryDate; // --- NEW FIELD ---
+  final bool isOpened;
   final String label;
   final String? photoPath;
   final bool favorite;
@@ -45,13 +54,14 @@ CREATE TABLE $tableName (
     this.brand,
     required this.openedDate,
     required this.shelfLifeDays,
+    required this.expiryDate,
+    this.unopenedExpiryDate, // --- NEW FIELD ---
+    this.isOpened = false,
     required this.label,
     this.photoPath,
     this.favorite = false,
     this.notes,
   });
-
-  DateTime get expiryDate => openedDate.add(Duration(days: shelfLifeDays));
 
   int get remainingDays {
     final diff = expiryDate.difference(DateTime.now()).inDays;
@@ -65,6 +75,10 @@ CREATE TABLE $tableName (
       colBrand: brand,
       colOpenedDate: openedDate.millisecondsSinceEpoch,
       colShelfLifeDays: shelfLifeDays,
+      colExpiryDate: expiryDate.millisecondsSinceEpoch,
+      colUnopenedExpiryDate:
+          unopenedExpiryDate?.millisecondsSinceEpoch, // --- NEW FIELD ---
+      colIsOpened: isOpened ? 1 : 0,
       colLabel: label,
       colPhotoPath: photoPath,
       colFavorite: favorite ? 1 : 0,
@@ -73,91 +87,71 @@ CREATE TABLE $tableName (
   }
 
   factory ProductItem.fromMap(Map<String, Object?> map) {
-    final openedRaw = map[colOpenedDate];
-    final shelfRaw = map[colShelfLifeDays];
-    final favoriteRaw = map[colFavorite];
-    final notesRaw = map[colNotes];
-
-    DateTime opened;
-    if (openedRaw is int) {
-      opened = DateTime.fromMillisecondsSinceEpoch(openedRaw);
-    } else if (openedRaw is String) {
-      opened = DateTime.fromMillisecondsSinceEpoch(int.parse(openedRaw));
-    } else {
-      throw FormatException(
-        'Unsupported opened_date type: ${openedRaw.runtimeType}',
-      );
+    DateTime parseDate(dynamic raw) {
+      if (raw is int) return DateTime.fromMillisecondsSinceEpoch(raw);
+      if (raw is String) return DateTime.fromMillisecondsSinceEpoch(int.parse(raw));
+      throw FormatException('Unsupported date type: ${raw.runtimeType}');
     }
 
-    int shelfDays;
-    if (shelfRaw is int) {
-      shelfDays = shelfRaw;
-    } else if (shelfRaw is String) {
-      shelfDays = int.parse(shelfRaw);
-    } else {
-      throw FormatException(
-        'Unsupported shelf_life_days type: ${shelfRaw.runtimeType}',
-      );
+    // --- NEW HELPER ---
+    DateTime? parseDateNullable(dynamic raw) {
+      if (raw == null) return null;
+      return parseDate(raw);
     }
 
-    bool fav;
-    if (favoriteRaw is int) {
-      fav = favoriteRaw != 0;
-    } else if (favoriteRaw is String) {
-      fav = int.parse(favoriteRaw) != 0;
-    } else if (favoriteRaw is bool) {
-      fav = favoriteRaw;
-    } else {
-      fav = false;
+    bool parseBool(dynamic raw) {
+      if (raw is int) return raw != 0;
+      if (raw is String) return int.parse(raw) != 0;
+      if (raw is bool) return raw;
+      return false;
     }
 
-    List<String>? parsedNotes;
-    if (notesRaw == null) {
-      parsedNotes = null;
-    } else if (notesRaw is String) {
-      try {
-        final dynamic decoded = json.decode(notesRaw);
-        if (decoded is List) {
-          parsedNotes = decoded
-              .map((e) => e?.toString() ?? '')
-              .cast<String>()
-              .toList();
-        } else {
-          parsedNotes = [notesRaw];
+    List<String>? parseNotes(dynamic raw) {
+      if (raw == null) return null;
+      if (raw is String) {
+        try {
+          final decoded = json.decode(raw);
+          if (decoded is List) return decoded.map((e) => e?.toString() ?? '').toList();
+          return [raw];
+        } catch (_) {
+          return [raw];
         }
-      } catch (_) {
-        parsedNotes = [notesRaw];
       }
-    } else {
-      parsedNotes = [notesRaw.toString()];
+      return [raw.toString()];
     }
 
     return ProductItem(
-      id: (map[colId] as String),
-      name: (map[colName] as String),
+      id: map[colId] as String,
+      name: map[colName] as String,
       brand: map[colBrand] as String?,
-      openedDate: opened,
-      shelfLifeDays: shelfDays,
-      label: (map[colLabel] as String),
+      openedDate: parseDate(map[colOpenedDate]),
+      shelfLifeDays: (map[colShelfLifeDays] is int)
+          ? map[colShelfLifeDays] as int
+          : int.parse(map[colShelfLifeDays].toString()),
+      expiryDate: parseDate(map[colExpiryDate]),
+      unopenedExpiryDate:
+          parseDateNullable(map[colUnopenedExpiryDate]), // --- NEW FIELD ---
+      isOpened: parseBool(map[colIsOpened]),
+      label: map[colLabel] as String,
       photoPath: map[colPhotoPath] as String?,
-      favorite: fav,
-      notes: parsedNotes,
+      favorite: parseBool(map[colFavorite]),
+      notes: parseNotes(map[colNotes]),
     );
   }
 
-  /// FIXED: Proper handling of nullable fields
-  /// Use a special _Undefined class to distinguish between "not provided" and "explicitly null"
   ProductItem copyWith({
     String? id,
     String? name,
-    Object? brand =
-        _Undefined, // Changed to Object to accept both String? and _Undefined
+    Object? brand = _Undefined,
     DateTime? openedDate,
     int? shelfLifeDays,
+    DateTime? expiryDate,
+    Object? unopenedExpiryDate = _Undefined, // --- NEW FIELD ---
+    bool? isOpened,
     String? label,
-    Object? photoPath = _Undefined, // Changed to Object
+    Object? photoPath = _Undefined,
     bool? favorite,
-    Object? notes = _Undefined, // Changed to Object
+    Object? notes = _Undefined,
   }) {
     return ProductItem(
       id: id ?? this.id,
@@ -165,10 +159,13 @@ CREATE TABLE $tableName (
       brand: brand == _Undefined ? this.brand : brand as String?,
       openedDate: openedDate ?? this.openedDate,
       shelfLifeDays: shelfLifeDays ?? this.shelfLifeDays,
+      expiryDate: expiryDate ?? this.expiryDate,
+      unopenedExpiryDate: unopenedExpiryDate == _Undefined
+          ? this.unopenedExpiryDate
+          : unopenedExpiryDate as DateTime?, // --- NEW FIELD ---
+      isOpened: isOpened ?? this.isOpened,
       label: label ?? this.label,
-      photoPath: photoPath == _Undefined
-          ? this.photoPath
-          : photoPath as String?,
+      photoPath: photoPath == _Undefined ? this.photoPath : photoPath as String?,
       favorite: favorite ?? this.favorite,
       notes: notes == _Undefined ? this.notes : notes as List<String>?,
     );
@@ -176,51 +173,10 @@ CREATE TABLE $tableName (
 
   @override
   String toString() {
-    return 'ProductItem(id: $id, name: $name, brand: $brand, openedDate: $openedDate, shelfLifeDays: $shelfLifeDays, label: $label, photoPath: $photoPath, favorite: $favorite, notes: $notes)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is ProductItem &&
-        other.id == id &&
-        other.name == name &&
-        other.brand == brand &&
-        other.openedDate == openedDate &&
-        other.shelfLifeDays == shelfLifeDays &&
-        other.label == label &&
-        other.photoPath == photoPath &&
-        other.favorite == favorite &&
-        _listEquals(other.notes, notes);
-  }
-
-  @override
-  int get hashCode {
-    return Object.hash(
-      id,
-      name,
-      brand,
-      openedDate,
-      shelfLifeDays,
-      label,
-      photoPath,
-      favorite,
-      notes == null ? 0 : Object.hashAll(notes!),
-    );
-  }
-
-  static bool _listEquals(List<String>? a, List<String>? b) {
-    if (a == null && b == null) return true;
-    if (a == null || b == null) return false;
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
+    return 'ProductItem(id: $id, name: $name, brand: $brand, openedDate: $openedDate, shelfLifeDays: $shelfLifeDays, expiryDate: $expiryDate, unopenedExpiryDate: $unopenedExpiryDate, isOpened: $isOpened, label: $label, photoPath: $photoPath, favorite: $favorite, notes: $notes)';
   }
 }
 
-/// Sentinel class to distinguish "not provided" from "explicitly null"
 class _Undefined {
   const _Undefined();
 }

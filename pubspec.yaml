@@ -22,6 +22,7 @@ dependencies:
   intl: ^0.18.1 # i18n & formatting
   image_picker: ^1.2.0 # pick images
   flutter_native_splash: ^2.3.0
+  shared_preferences: ^2.1.1
 
 # -------------------------
 # dev tools

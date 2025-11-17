@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:pao_tracker/utils/colors.dart';
+// import 'package:pao_tracker/utils/colors.dart'; // No longer needed
+
 class PAOOptions extends StatelessWidget {
   final List<int> valuesInMonths;
   final int? selectedMonths;
   final void Function(int?) onSelectedMonths;
+
   const PAOOptions({
     super.key,
     required this.valuesInMonths,
@@ -13,35 +15,47 @@ class PAOOptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // Map months to slider index
+    final currentIndex = selectedMonths != null
+        ? valuesInMonths.indexOf(selectedMonths!)
+        : 0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Quick PAO', style: TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: valuesInMonths.map((m) {
-            final isSelected = selectedMonths == m;
-            return ChoiceChip(
-              label: Text('${m}M'),
-              selected: isSelected,
-              onSelected: (_) => onSelectedMonths(isSelected ? null : m),
-              elevation: 0,
-              selectedColor: AppColors.primaryContainer,
-              backgroundColor: AppColors.surfaceVariant,
-              labelStyle: TextStyle(
-                color: isSelected
-                    ? AppColors.onPrimaryContainer
-                    : AppColors.onSurfaceVariant,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            );
-          }).toList(),
+        const Text(
+          'Select PAO',
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('${valuesInMonths.first}M'),
+            Text('${valuesInMonths.last}M'),
+          ],
+        ),
+        Slider(
+          value: currentIndex.toDouble(),
+          min: 0,
+          max: (valuesInMonths.length - 1).toDouble(),
+          divisions: valuesInMonths.length - 1,
+          label: '${valuesInMonths[currentIndex]}M',
+          onChanged: (value) {
+            onSelectedMonths(valuesInMonths[value.round()]);
+          },
+          // --- UPDATED: Use theme colors ---
+          activeColor: colorScheme.secondary,
+          inactiveColor: colorScheme.surfaceVariant,
+        ),
+        if (selectedMonths != null)
+          Text(
+            'Selected: ${selectedMonths}M',
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
       ],
     );
   }

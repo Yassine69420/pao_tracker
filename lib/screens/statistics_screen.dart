@@ -4,25 +4,22 @@ import 'package:pao_tracker/utils/colors.dart';
 import '../models/product_item.dart';
 import '../providers/product_provider.dart';
 
-/// Redesigned StatisticsScreen
-/// - tighter spacing
-/// - responsive KPI grid using Wrap
-/// - unified card styles
-/// - cleaner status bar and legend
-/// - accessible contrast and breathing room
-/// - [FIX] Redesigned status legend to a Column to fix overflow.
 class StatisticsScreen extends ConsumerWidget {
   const StatisticsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productListAsync = ref.watch(productListProvider);
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      // --- UPDATED: Use theme color ---
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Statistics'),
-        backgroundColor: AppColors.surface,
+        // --- UPDATED: Use theme color ---
+        backgroundColor: colorScheme.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
@@ -39,7 +36,8 @@ class StatisticsScreen extends ConsumerWidget {
             child: Text(
               'Failed to load statistics:\n$e',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.error),
+              // --- UPDATED: Use theme color ---
+              style: TextStyle(color: colorScheme.error),
             ),
           ),
         ),
@@ -48,6 +46,10 @@ class StatisticsScreen extends ConsumerWidget {
   }
 
   Widget _buildStatsView(BuildContext context, List<ProductItem> products) {
+    // --- NEW: Get themes ---
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
     final totalProducts = products.length;
     final totalFavorites = products.where((p) => p.favorite).length;
     final totalExpired = products.where((p) => p.remainingDays < 0).length;
@@ -59,13 +61,13 @@ class StatisticsScreen extends ConsumerWidget {
     // labels
     final labelCounts = <String, int>{};
     for (final p in products) {
-      labelCounts.update(p.label, (v) => v + 1, ifAbsent: () => 1);
+      // Use a placeholder if label is empty
+      final label = p.label.isEmpty ? 'No Label' : p.label;
+      labelCounts.update(label, (v) => v + 1, ifAbsent: () => 1);
     }
     final sortedLabels = labelCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final topLabels = sortedLabels.take(3).toList();
-
-    final textTheme = Theme.of(context).textTheme;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
@@ -76,7 +78,8 @@ class StatisticsScreen extends ConsumerWidget {
           Text(
             'Overview',
             style: textTheme.titleLarge?.copyWith(
-              color: AppColors.onSurface,
+              // --- UPDATED: Use theme color ---
+              color: colorScheme.onSurface,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -88,28 +91,35 @@ class StatisticsScreen extends ConsumerWidget {
             runSpacing: 12,
             children: [
               _compactStatCard(
+                context, // --- UPDATED ---
                 'Total',
                 totalProducts.toString(),
                 Icons.inventory_2_outlined,
-                AppColors.primary,
+                // --- UPDATED: Use theme color ---
+                colorScheme.primary,
               ),
               _compactStatCard(
+                context, // --- UPDATED ---
                 'Favorites',
                 totalFavorites.toString(),
                 Icons.favorite_border_rounded,
-                AppColors.tertiary,
+                // --- UPDATED: Use theme color ---
+                colorScheme.tertiary,
               ),
               _compactStatCard(
+                context, // --- UPDATED ---
                 'Expired',
                 totalExpired.toString(),
                 Icons.error_outline_rounded,
-                AppColors.error,
+                // --- UPDATED: Use theme color ---
+                colorScheme.error,
               ),
               _compactStatCard(
+                context, // --- UPDATED ---
                 'Expiring',
                 totalExpiring.toString(),
                 Icons.watch_later_outlined,
-                AppColors.warning,
+                AppColors.warning, // Keep semantic color
               ),
             ],
           ),
@@ -120,12 +130,14 @@ class StatisticsScreen extends ConsumerWidget {
           Text(
             'Product Status',
             style: textTheme.titleLarge?.copyWith(
-              color: AppColors.onSurface,
+              // --- UPDATED: Use theme color ---
+              color: colorScheme.onSurface,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 12),
-          _statusCard(totalSafe, totalExpiring, totalExpired),
+          // --- UPDATED: Pass context ---
+          _statusCard(context, totalSafe, totalExpiring, totalExpired),
 
           const SizedBox(height: 18),
 
@@ -133,7 +145,8 @@ class StatisticsScreen extends ConsumerWidget {
           Text(
             'Most Common Labels',
             style: textTheme.titleLarge?.copyWith(
-              color: AppColors.onSurface,
+              // --- UPDATED: Use theme color ---
+              color: colorScheme.onSurface,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -142,7 +155,8 @@ class StatisticsScreen extends ConsumerWidget {
             Text(
               'No labels found.',
               style: textTheme.bodyMedium?.copyWith(
-                color: AppColors.onSurfaceVariant,
+                // --- UPDATED: Use theme color ---
+                color: colorScheme.onSurfaceVariant,
               ),
             )
           else
@@ -160,19 +174,25 @@ class StatisticsScreen extends ConsumerWidget {
 
   // Compact stat card used in the Wrap
   Widget _compactStatCard(
+    BuildContext context, // --- UPDATED ---
     String title,
     String value,
     IconData icon,
     Color accent,
   ) {
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
+
     return SizedBox(
       width: 160, // keeps a consistent footprint
       child: Card(
         elevation: 0,
-        color: AppColors.surface,
+        // --- UPDATED: Use theme color ---
+        color: colorScheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: AppColors.outlineVariant.withOpacity(0.45)),
+          // --- UPDATED: Use theme color ---
+          side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.45)),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -186,7 +206,8 @@ class StatisticsScreen extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.onSurface,
+                  // --- UPDATED: Use theme color ---
+                  color: colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 4),
@@ -194,7 +215,8 @@ class StatisticsScreen extends ConsumerWidget {
                 title,
                 style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.onSurfaceVariant,
+                  // --- UPDATED: Use theme color ---
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -204,12 +226,17 @@ class StatisticsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _statusCard(int safe, int expiring, int expired) {
+  Widget _statusCard(
+      BuildContext context, int safe, int expiring, int expired) {
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
+
     final total = safe + expiring + expired;
     if (total == 0) {
       return Card(
         elevation: 0,
-        color: AppColors.surfaceVariant.withOpacity(0.18),
+        // --- UPDATED: Use theme color ---
+        color: colorScheme.surfaceVariant.withOpacity(0.18),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(
           padding: const EdgeInsets.all(14.0),
@@ -218,7 +245,8 @@ class StatisticsScreen extends ConsumerWidget {
               Expanded(
                 child: Text(
                   'No products to analyze',
-                  style: TextStyle(color: AppColors.onSurfaceVariant),
+                  // --- UPDATED: Use theme color ---
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
                 ),
               ),
             ],
@@ -233,7 +261,8 @@ class StatisticsScreen extends ConsumerWidget {
 
     return Card(
       elevation: 0,
-      color: AppColors.surfaceVariant.withOpacity(0.12),
+      // --- UPDATED: Use theme color ---
+      color: colorScheme.surfaceVariant.withOpacity(0.12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(14.0),
@@ -258,7 +287,8 @@ class StatisticsScreen extends ConsumerWidget {
                   if (expired > 0)
                     Expanded(
                       flex: (expiredPct * 100).clamp(1, 100).toInt(),
-                      child: Container(height: 18, color: AppColors.error),
+                      // --- UPDATED: Use theme color ---
+                      child: Container(height: 18, color: colorScheme.error),
                     ),
                 ],
               ),
@@ -268,6 +298,7 @@ class StatisticsScreen extends ConsumerWidget {
             Column(
               children: [
                 _legendItem(
+                  context, // --- UPDATED ---
                   AppColors.success,
                   'Safe',
                   safe,
@@ -275,6 +306,7 @@ class StatisticsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 6), // Spacing between items
                 _legendItem(
+                  context, // --- UPDATED ---
                   AppColors.warning,
                   'Expiring',
                   expiring,
@@ -282,7 +314,9 @@ class StatisticsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 6), // Spacing between items
                 _legendItem(
-                  AppColors.error,
+                  context, // --- UPDATED ---
+                  // --- UPDATED: Use theme color ---
+                  colorScheme.error,
                   'Expired',
                   expired,
                   (expiredPct * 100),
@@ -295,7 +329,11 @@ class StatisticsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _legendItem(Color color, String title, int count, double pct) {
+  Widget _legendItem(
+      BuildContext context, Color color, String title, int count, double pct) {
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Row(
       children: [
         Container(
@@ -311,7 +349,8 @@ class StatisticsScreen extends ConsumerWidget {
         Flexible(
           child: Text(
             title,
-            style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 13),
+            // --- UPDATED: Use theme color ---
+            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
             overflow: TextOverflow.ellipsis, // Add ellipsis for long text
             maxLines: 1,
           ),
@@ -320,22 +359,28 @@ class StatisticsScreen extends ConsumerWidget {
         Text(
           '${pct.toStringAsFixed(0)}%',
           style: TextStyle(
-            color: AppColors.onSurface,
+            // --- UPDATED: Use theme color ---
+            color: colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(width: 8),
-        Text('($count)', style: TextStyle(color: AppColors.onSurfaceVariant)),
+        // --- UPDATED: Use theme color ---
+        Text('($count)', style: TextStyle(color: colorScheme.onSurfaceVariant)),
       ],
     );
   }
 
   Widget _labelRow(BuildContext context, String label, int count, int total) {
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
+
     final pct = total == 0 ? 0.0 : (count / total * 100);
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
-      color: AppColors.surfaceVariant.withOpacity(0.12),
+      // --- UPDATED: Use theme color ---
+      color: colorScheme.surfaceVariant.withOpacity(0.12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -344,13 +389,15 @@ class StatisticsScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.secondaryContainer,
+                // --- UPDATED: Use theme color ---
+                color: colorScheme.secondaryContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 label,
                 style: TextStyle(
-                  color: AppColors.onSecondaryContainer,
+                  // --- UPDATED: Use theme color ---
+                  color: colorScheme.onSecondaryContainer,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -358,13 +405,15 @@ class StatisticsScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Text(
               '$count items',
-              style: TextStyle(color: AppColors.onSurfaceVariant),
+              // --- UPDATED: Use theme color ---
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
             const Spacer(),
             Text(
               '${pct.toStringAsFixed(0)}%',
               style: TextStyle(
-                color: AppColors.onSurface,
+                // --- UPDATED: Use theme color ---
+                color: colorScheme.onSurface,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -375,6 +424,9 @@ class StatisticsScreen extends ConsumerWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -382,13 +434,15 @@ class StatisticsScreen extends ConsumerWidget {
           Icon(
             Icons.bar_chart_outlined,
             size: 84,
-            color: AppColors.onSurfaceVariant.withOpacity(0.5),
+            // --- UPDATED: Use theme color ---
+            color: colorScheme.onSurfaceVariant.withOpacity(0.5),
           ),
           const SizedBox(height: 20),
           Text(
             'No Statistics Yet',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppColors.onSurfaceVariant,
+                  // --- UPDATED: Use theme color ---
+                  color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                 ),
           ),
@@ -396,7 +450,8 @@ class StatisticsScreen extends ConsumerWidget {
           Text(
             'Add some products to see your stats.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurfaceVariant.withOpacity(0.75),
+                  // --- UPDATED: Use theme color ---
+                  color: colorScheme.onSurfaceVariant.withOpacity(0.75),
                 ),
           ),
         ],

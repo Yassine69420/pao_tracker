@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pao_tracker/utils/colors.dart';
+// import 'package:pao_tracker/utils/colors.dart'; // No longer needed
 
 class FavoriteButton extends StatefulWidget {
   final bool isFavorite;
@@ -59,6 +59,9 @@ class _FavoriteButtonState extends State<FavoriteButton>
 
   @override
   Widget build(BuildContext context) {
+    // --- NEW: Get theme ---
+    final colorScheme = Theme.of(context).colorScheme;
+
     return IconButton(
       onPressed: _toggle,
       tooltip: _fav ? 'Unfavorite' : 'Mark favorite',
@@ -71,8 +74,9 @@ class _FavoriteButtonState extends State<FavoriteButton>
           animation: _controller,
           builder: (context, child) {
             final color = Color.lerp(
-              AppColors.onSurfaceVariant,
-              AppColors.error,
+              // --- UPDATED: Use theme colors ---
+              colorScheme.onSurfaceVariant,
+              colorScheme.error,
               _controller.value,
             )!;
             return Icon(

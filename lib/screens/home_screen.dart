@@ -1,4 +1,4 @@
-import 'dart:io'; // <-- Add this import for File operations
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/product_provider.dart';
@@ -10,6 +10,15 @@ import 'detail_screen.dart';
 // Enum for the filter chips
 enum ProductFilter { all, favorites, expiring, expired, safe }
 
+// --- NEW: Enum for sorting ---
+enum ProductSort {
+  defaults, // By added (default from DB)
+  byNameAsc, // A-Z
+  byNameDesc, // Z-A
+  byExpiryAsc, // Soonest
+  byExpiryDesc, // Latest
+}
+
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -19,6 +28,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _searchQuery = '';
   ProductFilter _selectedFilter = ProductFilter.all;
+  ProductSort _selectedSort = ProductSort.defaults; // <-- NEW: Sort state
 
   @override
   void initState() {
@@ -29,6 +39,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// Helper to get the display name for a filter
   String _getFilterName(ProductFilter filter) {
+    // ... existing code ...
     switch (filter) {
       case ProductFilter.all:
         return 'All';
@@ -43,11 +54,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  // --- NEW: Helper to get the display name for a sort option ---
+  String _getSortName(ProductSort sort) {
+    switch (sort) {
+      case ProductSort.defaults:
+        return 'Default (Newest)';
+      case ProductSort.byNameAsc:
+        return 'Name (A-Z)';
+      case ProductSort.byNameDesc:
+        return 'Name (Z-A)';
+      case ProductSort.byExpiryAsc:
+        return 'Expiry (Soonest)';
+      case ProductSort.byExpiryDesc:
+        return 'Expiry (Latest)';
+    }
+  }
+
   /// Client-side filtering based on the selected chip
   List<ProductItem> _getFilteredProducts(
     List<ProductItem> products,
     ProductFilter filter,
   ) {
+    // ... existing code ...
     switch (filter) {
       case ProductFilter.favorites:
         return products.where((p) => p.favorite).toList();
@@ -64,59 +92,106 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  // --- NEW: Client-side sorting ---
+  List<ProductItem> _applySorting(
+    List<ProductItem> products,
+    ProductSort sort,
+  ) {
+    // If default, just return the list from the filter (which is already a copy)
+    if (sort == ProductSort.defaults) {
+      return products;
+    }
+
+    // Create a new list to avoid modifying the original
+    final sortedList = List<ProductItem>.from(products);
+
+    switch (sort) {
+      case ProductSort.byNameAsc:
+        sortedList.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+        break;
+      case ProductSort.byNameDesc:
+        sortedList.sort(
+          (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()),
+        );
+        break;
+      case ProductSort.byExpiryAsc:
+        sortedList.sort((a, b) => a.remainingDays.compareTo(b.remainingDays));
+        break;
+      case ProductSort.byExpiryDesc:
+        sortedList.sort((a, b) => b.remainingDays.compareTo(a.remainingDays));
+        break;
+      case ProductSort.defaults:
+        // This case is handled by the check above, but switch needs it
+        break;
+    }
+    return sortedList;
+  }
+
   /// Gets the styling colors for a filter chip
   (Color, Color, Color) _getChipStyle(
     ProductFilter filter,
     bool isSelected,
     BuildContext context,
   ) {
+    // ... (existing code, no changes)
     final theme = Theme.of(context);
     // Default unselected style
     Color chipBackgroundColor = theme.colorScheme.surface;
-    Color labelColor = AppColors.onSurfaceVariant;
-    Color borderColor = AppColors.outlineVariant;
+    // UPDATED: Use theme color
+    Color labelColor = theme.colorScheme.onSurfaceVariant;
+    Color borderColor = theme.colorScheme.outlineVariant;
     switch (filter) {
       case ProductFilter.all:
-        labelColor = AppColors.primary;
-        borderColor = isSelected ? Colors.transparent : AppColors.primary;
+        // UPDATED: Use theme colors
+        labelColor = theme.colorScheme.primary;
+        borderColor = isSelected
+            ? Colors.transparent
+            : theme.colorScheme.primary;
         chipBackgroundColor = isSelected
-            ? AppColors.primaryContainer
+            ? theme.colorScheme.primaryContainer
             : theme.colorScheme.surface;
         labelColor = isSelected
-            ? AppColors.onPrimaryContainer
-            : AppColors.primary;
+            ? theme.colorScheme.onPrimaryContainer
+            : theme.colorScheme.primary;
         break;
       case ProductFilter.favorites:
-        labelColor = AppColors.tertiary;
-        borderColor = isSelected ? Colors.transparent : AppColors.tertiary;
+        // UPDATED: Use theme colors
+        labelColor = theme.colorScheme.tertiary;
+        borderColor = isSelected
+            ? Colors.transparent
+            : theme.colorScheme.tertiary;
         chipBackgroundColor = isSelected
-            ? AppColors.tertiaryContainer
+            ? theme.colorScheme.tertiaryContainer
             : theme.colorScheme.surface;
         labelColor = isSelected
-            ? AppColors.onTertiaryContainer
-            : AppColors.tertiary;
+            ? theme.colorScheme.onTertiaryContainer
+            : theme.colorScheme.tertiary;
         break;
       case ProductFilter.expiring:
-        // Using Warning colors
+        // Using Warning colors (from AppColors, as it's not in standard theme)
         labelColor = AppColors.warning;
         borderColor = isSelected ? Colors.transparent : AppColors.warning;
         chipBackgroundColor = isSelected
             ? AppColors.warningContainer
             : theme.colorScheme.surface;
         // Define a fitting "onWarningContainer" color
-        labelColor = isSelected ? Color(0xFFC77C0E) : AppColors.warning;
+        labelColor = isSelected ? const Color(0xFFC77C0E) : AppColors.warning;
         break;
       case ProductFilter.expired:
-        // Using Error colors
-        labelColor = AppColors.error;
-        borderColor = isSelected ? Colors.transparent : AppColors.error;
+        // UPDATED: Use theme colors
+        labelColor = theme.colorScheme.error;
+        borderColor = isSelected ? Colors.transparent : theme.colorScheme.error;
         chipBackgroundColor = isSelected
-            ? AppColors.errorContainer
+            ? theme.colorScheme.errorContainer
             : theme.colorScheme.surface;
-        labelColor = isSelected ? AppColors.onErrorContainer : AppColors.error;
+        labelColor = isSelected
+            ? theme.colorScheme.onErrorContainer
+            : theme.colorScheme.error;
         break;
       case ProductFilter.safe:
-        // Using Success colors
+        // Using Success colors (from AppColors, as it's not in standard theme)
         labelColor = AppColors.success;
         borderColor = isSelected ? Colors.transparent : AppColors.success;
         chipBackgroundColor = isSelected
@@ -124,7 +199,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             : theme.colorScheme.surface;
         // Re-using onPrimaryContainer as it's a fitting dark green
         labelColor = isSelected
-            ? AppColors.onPrimaryContainer
+            ? theme
+                  .colorScheme
+                  .onPrimaryContainer // UPDATED
             : AppColors.success;
         break;
     }
@@ -133,15 +210,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // UPDATED: Get theme and colorScheme
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final productListAsync = ref.watch(productListProvider);
+
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: colorScheme.surface, // UPDATED
       appBar: AppBar(
         title: const Text('My Products'),
-        backgroundColor: AppColors.surface,
+        backgroundColor: colorScheme.surface, // UPDATED
         elevation: 0,
         scrolledUnderElevation: 0, // Prevents tint on scroll
         actions: [
+          // --- NEW: SORT BUTTON ---
+          IconButton(
+            icon: const Icon(Icons.sort_rounded),
+            onPressed: () => _showSortOptions(context),
+            tooltip: 'Sort',
+          ),
+          // --- END NEW ---
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () {
@@ -155,18 +243,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           // Search bar
           Padding(
+            // ... (existing code, no changes)
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: SearchBar(
               hintText: 'Search products...',
               leading: const Icon(Icons.search),
               backgroundColor: MaterialStateProperty.all(
-                AppColors.surfaceVariant.withOpacity(0.5),
+                colorScheme.surfaceVariant.withOpacity(0.5), // UPDATED
               ),
               elevation: MaterialStateProperty.all(0),
               shape: MaterialStateProperty.all(
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
               ),
               onChanged: (value) {
+                // ... existing code ...
                 setState(() => _searchQuery = value);
                 if (value.isEmpty) {
                   ref.read(productListProvider.notifier).refresh();
@@ -178,10 +268,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           // Filter chips
           Padding(
+            // ... (existing code, no changes)
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              // Add showScrollbar: true if you have many filters
+              // ... existing code ...
               child: Row(
                 children: ProductFilter.values.map((filter) {
                   final isSelected = _selectedFilter == filter;
@@ -223,11 +314,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Expanded(
             child: productListAsync.when(
               data: (products) {
-                // Apply filtering to the list
-                final displayedProducts = _getFilteredProducts(
+                // --- MODIFIED: Apply filtering THEN sorting ---
+                // 1. Apply filtering to the list
+                final filteredProducts = _getFilteredProducts(
                   products,
                   _selectedFilter,
                 );
+
+                // 2. Apply sorting to the filtered list
+                final displayedProducts = _applySorting(
+                  filteredProducts,
+                  _selectedSort,
+                );
+                // --- END MODIFICATION ---
 
                 if (displayedProducts.isEmpty) {
                   // Pass the original *unsorted* list length to check if DB is empty
@@ -238,13 +337,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     await ref.read(productListProvider.notifier).refresh();
                   },
                   child: ListView.builder(
-                    // [FIX] This padding clears the floating nav bar.
-                    // 88px is the magic number: ~80px for the nav bar + 8px padding.
-                    // This must be coordinated with the FAB's padding.
+                    // ... existing code ...
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
-                    itemCount: displayedProducts.length,
+                    itemCount: displayedProducts.length, // <-- Use sorted list
                     itemBuilder: (context, index) {
-                      final product = displayedProducts[index];
+                      final product =
+                          displayedProducts[index]; // <-- Use sorted list
                       // Use Dismissible for swipe-to-delete
                       return Dismissible(
                         key: Key(product.id),
@@ -256,7 +354,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         onDismissed: (direction) {
                           _performDelete(product.id);
                         },
-                        background: _buildDismissibleBackground(),
+                        // UPDATED: Pass context
+                        background: _buildDismissibleBackground(context),
                         child: ProductCard(
                           product: product,
                           onTap: () => _navigateToDetail(context, product.id),
@@ -273,6 +372,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       floatingActionButton: Padding(
+        // ... (existing code, no changes)
         padding: const EdgeInsets.only(bottom: 90.0),
         child: FloatingActionButton.extended(
           onPressed: () => _navigateToAddEdit(context),
@@ -284,24 +384,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// Build the background for the Dismissible (swipe-to-delete)
-  Widget _buildDismissibleBackground() {
+  // UPDATED: Added context
+  Widget _buildDismissibleBackground(BuildContext context) {
+    // ... (existing code, no changes)
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.errorContainer,
+        color: colorScheme.errorContainer, // UPDATED
         borderRadius: BorderRadius.circular(12), // Match card
       ),
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Icon(
         Icons.delete_sweep_rounded,
-        color: AppColors.onErrorContainer,
+        color: colorScheme.onErrorContainer, // UPDATED
       ),
     );
   }
 
   /// Build the empty state widget
   Widget _buildEmptyState(bool isDatabaseEmpty) {
+    // ... (existing code, no changes)
     String title;
     String subtitle;
     if (_searchQuery.isNotEmpty) {
@@ -314,10 +418,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       title = 'No products yet';
       subtitle = 'Tap + to add your first product';
     } else {
-      // This case covers when filters/search result in empty
-      // but the database itself is not empty.
+      // ... existing code ...
       title = 'No products found';
-      subtitle = 'Pull to refresh or try a different filter/sort';
+      subtitle = 'Try selecting a different filter or sort'; // <-- Updated text
     }
     return Center(
       child: Column(
@@ -326,13 +429,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Icon(
             Icons.inventory_2_outlined,
             size: 80,
-            color: AppColors.onSurfaceVariant.withOpacity(0.5),
+            // UPDATED: Use theme
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurfaceVariant.withOpacity(0.5),
           ),
           const SizedBox(height: 24),
           Text(
             title,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: AppColors.onSurfaceVariant,
+              color: Theme.of(context).colorScheme.onSurfaceVariant, // UPDATED
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -341,7 +447,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             subtitle,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurfaceVariant.withOpacity(0.7),
+              // UPDATED: Use theme
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withOpacity(0.7),
             ),
           ),
         ],
@@ -351,19 +460,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// Build the error state widget
   Widget _buildErrorState(Object error) {
+    // ... (existing code, no changes)
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline_rounded, size: 64, color: AppColors.error),
+            Icon(
+              Icons.error_outline_rounded,
+              size: 64,
+              color: Theme.of(context).colorScheme.error,
+            ), // UPDATED
             const SizedBox(height: 16),
             Text(
               'Something went wrong',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(color: AppColors.error),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Theme.of(context).colorScheme.error,
+              ), // UPDATED
             ),
             const SizedBox(height: 8),
             Text(
@@ -386,6 +500,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _navigateToAddEdit(BuildContext context, [ProductItem? product]) async {
+    // ... (existing code, no changes)
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => AddEditScreen(product: product)),
@@ -395,6 +510,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _navigateToDetail(BuildContext context, String productId) async {
+    // ... (existing code, no changes)
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -405,9 +521,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(productListProvider.notifier).refresh();
   }
 
+  // --- NEW: Shows the sorting modal bottom sheet ---
+  void _showSortOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      constraints: const BoxConstraints(maxWidth: 640), // Good for tablet/web
+      builder: (context) {
+        return Padding(
+          // Add padding for aesthetics
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Sort by', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              // Map all enum values to RadioListTiles
+              ...ProductSort.values.map((sort) {
+                return RadioListTile<ProductSort>(
+                  title: Text(_getSortName(sort)),
+                  value: sort,
+                  groupValue: _selectedSort, // Uses the state variable
+                  onChanged: (ProductSort? value) {
+                    if (value != null) {
+                      // 1. Update the main screen's state
+                      setState(() {
+                        _selectedSort = value;
+                      });
+                      // 2. Close the sheet
+                      Navigator.pop(context);
+                    }
+                  },
+                  contentPadding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  // --- END NEW ---
+
   /// Shows the delete confirmation dialog.
   /// Returns `true` if delete is confirmed, `false` otherwise.
   Future<bool?> _showDeleteConfirmation() async {
+    // ... (existing code, no changes)
     return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -423,7 +583,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            // UPDATED: Use theme
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -433,6 +596,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// Performs the actual deletion logic.
   void _performDelete(String id) async {
+    // ... (existing code, no changes)
     await ref.read(productListProvider.notifier).delete(id);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -446,6 +610,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
+/// Rest of the file (ProductCard, _ExpiryStatus, etc.)
+/// ... (No changes needed below this line) ...
+///
 /// Restyled ProductCard
 class ProductCard extends StatelessWidget {
   final ProductItem product;
@@ -453,8 +620,8 @@ class ProductCard extends StatelessWidget {
   const ProductCard({super.key, required this.product, required this.onTap});
   @override
   Widget build(BuildContext context) {
-    final remainingDays = product.remainingDays;
-    final expiryStatus = _getExpiryStatus(remainingDays);
+    // UPDATED: Pass context to _getExpiryStatus
+    final expiryStatus = _getExpiryStatus(product.remainingDays, context);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
@@ -494,7 +661,9 @@ class ProductCard extends StatelessWidget {
                           Icon(
                             Icons.favorite,
                             size: 18,
-                            color: AppColors.error,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.error, // UPDATED
                           ),
                         ],
                       ],
@@ -504,7 +673,8 @@ class ProductCard extends StatelessWidget {
                       Text(
                         product.brand!,
                         style: TextStyle(
-                          color: AppColors.onSurfaceVariant,
+                          // UPDATED: Use theme
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 13,
                         ),
                         maxLines: 1,
@@ -535,26 +705,32 @@ class ProductCard extends StatelessWidget {
                         ),
                         const Spacer(),
                         // NEW: PAO Label chip
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors
-                                .surfaceVariant, // soft, card-like gray
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            product.label,
-                            style: const TextStyle(
-                              color: AppColors
-                                  .onSurfaceVariant, // slightly darker text
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
+                        // --- MODIFIED: Only show if label is not empty ---
+                        if (product.label.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              // UPDATED: Use theme
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceVariant,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              product.label,
+                              style: TextStyle(
+                                // UPDATED: Use theme
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ],
@@ -569,6 +745,7 @@ class ProductCard extends StatelessWidget {
 
   /// Builds the leading widget: either the product photo or a placeholder icon.
   Widget _buildLeadingWidget(BuildContext context, _ExpiryStatus expiryStatus) {
+    // ... existing code ...
     final hasPhoto = product.photoPath != null && product.photoPath!.isNotEmpty;
     final double size = 56.0; // Increased size for photos
     final borderRadius = BorderRadius.circular(12);
@@ -610,6 +787,7 @@ class ProductCard extends StatelessWidget {
     double size,
     BorderRadius borderRadius,
   ) {
+    // ... existing code ...
     return Container(
       width: size,
       height: size,
@@ -625,36 +803,37 @@ class ProductCard extends StatelessWidget {
     );
   }
 
-  _ExpiryStatus _getExpiryStatus(int remainingDays) {
+  // UPDATED: Pass context
+  _ExpiryStatus _getExpiryStatus(int remainingDays, BuildContext context) {
     if (remainingDays < 0) {
       return _ExpiryStatus(
         message: 'Expired ${remainingDays.abs()}d ago',
-        color: AppColors.expired,
+        color: AppColors.expired, // Kept semantic color
         icon: Icons.error_rounded,
       );
     } else if (remainingDays == 0) {
       return _ExpiryStatus(
         message: 'Expires today!',
-        color: AppColors.warning,
+        color: AppColors.warning, // Kept semantic color
         icon: Icons.warning_amber_rounded,
       );
     } else if (remainingDays <= 7) {
       return _ExpiryStatus(
         message: '$remainingDays days left',
-        color: AppColors.warning,
+        color: AppColors.warning, // Kept semantic color
         icon: Icons.warning_amber_rounded,
       );
     } else if (remainingDays <= 30) {
       // Use a less "urgent" color for 8-30 days
       return _ExpiryStatus(
         message: '$remainingDays days left',
-        color: AppColors.primary,
+        color: Theme.of(context).colorScheme.primary, // UPDATED
         icon: Icons.info_outline_rounded,
       );
     } else {
       return _ExpiryStatus(
         message: '$remainingDays days left',
-        color: AppColors.success,
+        color: AppColors.success, // Kept semantic color
         icon: Icons.check_circle_outline_rounded,
       );
     }

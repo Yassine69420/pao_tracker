@@ -1,19 +1,7 @@
-// Product repository — CRUD wrapper around DatabaseHelper for ProductItem.
-//
-// Provides a clean interface for higher-level code (providers, UI, tests)
-// to perform product operations without depending on raw SQL or sqflite details.
-
-
 import 'package:pao_tracker/data/database_helper.dart';
-
 import '../models/product_item.dart';
 
-
 /// Repository responsible for CRUD operations related to `ProductItem`.
-///
-/// This class is intentionally thin — it delegates the heavy lifting to
-/// `DatabaseHelper`. It focuses on transforming inputs/outputs and exposing
-/// a convenient API for callers.
 class ProductRepository {
   ProductRepository._(this._dbProvider);
 
@@ -25,10 +13,7 @@ class ProductRepository {
 
   /// Create/insert a product. If `item.id` is already present in the DB it
   /// will be replaced because DatabaseHelper uses ConflictAlgorithm.replace.
-  ///
-  /// Returns the inserted item (same instance by default).
   Future<ProductItem> create(ProductItem item) async {
-    // Ensure id exists — DatabaseHelper has a simple id generator if needed.
     final product = item.id.isEmpty
         ? item.copyWith(id: DatabaseHelper.generateId())
         : item;
@@ -43,6 +28,8 @@ class ProductRepository {
     String? brand,
     required DateTime openedDate,
     required int shelfLifeDays,
+    required DateTime expiryDate,
+    bool isOpened = false,
     required String label,
     String? photoPath,
     bool favorite = false,
@@ -59,6 +46,8 @@ class ProductRepository {
       brand: brand,
       openedDate: openedDate,
       shelfLifeDays: shelfLifeDays,
+      expiryDate: expiryDate,
+      isOpened: isOpened,
       label: label,
       photoPath: photoPath,
       favorite: favorite,
@@ -104,8 +93,7 @@ class ProductRepository {
     return await _dbProvider.deleteProduct(id);
   }
 
-  /// Search products by name or brand. The repository trims the query and
-  /// delegates to the DB provider.
+  /// Search products by name or brand.
   Future<List<ProductItem>> search(
     String query, {
     int? limit,
