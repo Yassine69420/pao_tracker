@@ -92,8 +92,7 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
           backgroundColor: colorScheme.surface,
           appBar: AppBar(
             title: Text(isEditing ? 'Edit Product' : 'Add Product'),
-            // --- UPDATED: Use theme color ---
-            backgroundColor: colorScheme.surface,
+            backgroundColor: colorScheme.surface, // theme color
             elevation: 0,
             centerTitle: true,
             actions: [
@@ -103,6 +102,7 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
               ),
             ],
           ),
+
           body: Form(
             key: _formKey,
             child: ListView(
@@ -154,7 +154,7 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                 const SizedBox(height: 20),
 
                 // --- NEW: Unopened Expiry Date Field ---
-                const Text(
+                Text(
                   "Expiry Date (Unopened)",
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
@@ -168,10 +168,8 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                       horizontal: 12,
                     ),
                     decoration: BoxDecoration(
-                      // --- UPDATED: Use theme color ---
                       color: colorScheme.surfaceVariant,
                       borderRadius: BorderRadius.circular(12),
-                      // --- UPDATED: Use theme color ---
                       border: Border.all(color: colorScheme.outlineVariant),
                     ),
                     child: Row(
@@ -180,13 +178,13 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                         const SizedBox(width: 12),
                         Text(
                           _unopenedExpiryDate == null
-                              ? 'Select date (optional)'
+                              ? 'Select date'
                               : _formatDate(_unopenedExpiryDate!),
                           style: TextStyle(
                             fontSize: 16,
                             color: _unopenedExpiryDate == null
-                                // --- UPDATED: Use theme color ---
-                                ? colorScheme.onSurfaceVariant
+                                ? colorScheme
+                                      .error // Highlight if not selected
                                 : null,
                           ),
                         ),
@@ -194,6 +192,7 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 20),
                 // --- End of New Field ---
 
@@ -226,7 +225,8 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                             return colorScheme.secondary; // checked color
                           }
                           // --- UPDATED: Use theme color ---
-                          return colorScheme.onSurfaceVariant; // unchecked color
+                          return colorScheme
+                              .onSurfaceVariant; // unchecked color
                         }),
                       ),
                     ),
@@ -237,13 +237,17 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                       title: const Text(
                         'Product is opened',
                         style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 16),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
                       ),
                       subtitle: Text(
                         'Check if you\'ve already started using this product',
                         // --- UPDATED: Use theme color ---
                         style: TextStyle(
-                            fontSize: 14, color: colorScheme.onSurfaceVariant),
+                          fontSize: 14,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
@@ -330,8 +334,7 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                       label: const Text('PAO Label'),
                       hintText: 'e.g., 6M, 12M, 24M',
                       prefixIcon: const Icon(Icons.label_outlined),
-                      helperText:
-                          'Period After Opening (e.g., 6M = 6 months)',
+                      helperText: 'Period After Opening (e.g., 6M = 6 months)',
                       filled: true,
                       // --- UPDATED: Use theme color ---
                       fillColor: colorScheme.surfaceVariant,
@@ -435,14 +438,16 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _unopenedExpiryDate ?? now.add(const Duration(days: 365)),
-      firstDate: now, // Can't expire in the past
+      initialDate: _unopenedExpiryDate ?? now, // start from today
+      firstDate: now, // can't pick past dates
       lastDate: DateTime(now.year + 10), // 10 years in the future
       builder: (context, child) =>
           Theme(data: Theme.of(context), child: child!),
     );
 
-    if (picked != null) setState(() => _unopenedExpiryDate = picked);
+    if (picked != null) {
+      setState(() => _unopenedExpiryDate = picked);
+    }
   }
 
   Future<void> _saveProduct() async {
@@ -454,6 +459,17 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
     int shelfLifeDays = 0;
     DateTime expiryDate;
     final paoLabel = _labelController.text.trim(); // Get the label
+
+    if (_unopenedExpiryDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please select an expiry date'),
+          backgroundColor: colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     if (_isOpened) {
       final parsedDays = _parsePAOLabel(paoLabel); // Try to parse it

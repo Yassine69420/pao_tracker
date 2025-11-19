@@ -23,6 +23,8 @@ dependencies:
   image_picker: ^1.2.0 # pick images
   flutter_native_splash: ^2.3.0
   shared_preferences: ^2.1.1
+  flutter_local_notifications: ^17.2.1
+  timezone: ^0.9.4
 
 # -------------------------
 # dev tools
@@ -44,21 +46,20 @@ flutter_launcher_icons:
 flutter_native_splash:
   color: "#FFFFFF"
   image: assets/icon.png
-  
+
   # Android-specific
   android: true
-  android_gravity: center  # Image position
+  android_gravity: center # Image position
   android_12:
     image: assets/icon.png
     color: "#FFFFFF"
 
-  
-  # iOS-specific  
+  # iOS-specific
   ios: true
-  ios_content_mode: center  # Image positioning for iOS
-  
+  ios_content_mode: center # Image positioning for iOS
+
   # Additional options
-  fullscreen: true  # Hide status bar during splash
+  fullscreen: true # Hide status bar during splash
 
 # -------------------------
 # flutter section

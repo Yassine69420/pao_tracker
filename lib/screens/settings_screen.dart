@@ -1,9 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:pao_tracker/utils/notification_preferences.dart';
 import '../app.dart';
 import '../utils/theme_preferences.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  late bool _notificationsEnabled;
+  late int _notificationDays;
+  final _daysController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    _notificationsEnabled =
+        await NotificationPreferences.loadNotificationsEnabled();
+    _notificationDays = await NotificationPreferences.loadNotificationDays();
+    _daysController.text = _notificationDays.toString();
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _daysController.dispose();
+    super.dispose();
+  }
 
   // Convert ThemeMode to readable string
   String _themeModeToString(ThemeMode mode) {
@@ -13,10 +43,10 @@ class SettingsScreen extends StatelessWidget {
       case ThemeMode.dark:
         return 'Dark';
       case ThemeMode.system:
-      default:
         return 'System Default';
     }
   }
+
 
   // Show theme selection dialog
   void _showThemeDialog(BuildContext context) {
@@ -68,6 +98,8 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
         children: [
+          _buildSectionHeader('Notifications', textTheme, colorScheme),
+          _buildNotificationSettings(context),
           _buildSectionHeader('Data', textTheme, colorScheme),
           _buildSettingsTile(
             context,
@@ -106,6 +138,63 @@ class SettingsScreen extends StatelessWidget {
             subtitle: '1.0.0',
             onTap: null,
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationSettings(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      color: colorScheme.surfaceVariant.withOpacity(0.3),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: [
+          SwitchListTile(
+            title: Text(
+              'Enable Notifications',
+              style: TextStyle(color: colorScheme.onSurface),
+            ),
+            subtitle: Text(
+              'Receive alerts for expiring products',
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+            value: _notificationsEnabled,
+            onChanged: (bool value) async {
+              setState(() {
+                _notificationsEnabled = value;
+              });
+              await NotificationPreferences.saveNotificationsEnabled(value);
+            },
+            secondary: Icon(
+              Icons.notifications_active_outlined,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (_notificationsEnabled)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: TextFormField(
+                controller: _daysController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Notify days before expiry',
+                  hintText: 'e.g., 7',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onChanged: (value) {
+                  final days = int.tryParse(value);
+                  if (days != null) {
+                    NotificationPreferences.saveNotificationDays(days);
+                  }
+                },
+              ),
+            ),
         ],
       ),
     );

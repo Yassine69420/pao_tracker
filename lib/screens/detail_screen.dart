@@ -97,12 +97,10 @@ class DetailScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 Text(
                   'Error loading product',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(
-                        // --- UPDATED: Use theme color ---
-                        color: colorScheme.error,
-                      ),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    // --- UPDATED: Use theme color ---
+                    color: colorScheme.error,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(error.toString(), textAlign: TextAlign.center),
@@ -140,8 +138,9 @@ class DetailScreen extends ConsumerWidget {
               updatedProduct.favorite
                   ? 'Added to favorites'
                   : 'Removed from favorites',
+                 
             ),
-            duration: const Duration(seconds: 1),
+            duration: Duration(milliseconds: 500),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
@@ -158,6 +157,8 @@ class DetailScreen extends ConsumerWidget {
           backgroundColor: colorScheme.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          duration: Duration(milliseconds: 500),
+
         ),
       );
     }
@@ -229,17 +230,17 @@ class _ProductDetailContent extends ConsumerWidget {
                   Text(
                     product.name,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   if (product.brand != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       product.brand!,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            // --- UPDATED: Use theme color ---
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                        // --- UPDATED: Use theme color ---
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ],
@@ -255,8 +256,10 @@ class _ProductDetailContent extends ConsumerWidget {
         Card(
           elevation: 2,
           // --- UPDATED: Pass context ---
-          shadowColor:
-              _getProgressColor(remainingDays, context).withOpacity(0.3),
+          shadowColor: _getProgressColor(
+            remainingDays,
+            context,
+          ).withOpacity(0.3),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -270,8 +273,8 @@ class _ProductDetailContent extends ConsumerWidget {
                     Text(
                       'Expiry Timeline',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -318,8 +321,10 @@ class _ProductDetailContent extends ConsumerWidget {
                     ),
                     decoration: BoxDecoration(
                       // --- UPDATED: Pass context ---
-                      color: _getProgressColor(remainingDays, context)
-                          .withOpacity(0.15),
+                      color: _getProgressColor(
+                        remainingDays,
+                        context,
+                      ).withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -362,21 +367,20 @@ class _ProductDetailContent extends ConsumerWidget {
         // Restyled info cards to be side-by-side
         Column(
           children: [
-            if (product.label != null && product.label!.isNotEmpty) ...[
+            if (product.label.isNotEmpty) ...[
               _InfoCard(
                 icon: Icons.label_outlined,
                 title: 'PAO Label',
-                value: product.label!, // MODIFIED: Added null check
-                // --- UPDATED: Use theme color ---
+                value: product.label,
                 color: colorScheme.primary,
               ),
-              const SizedBox(height: 12), // spacing only if the card is shown
+              const SizedBox(height: 12),
+
               _InfoCard(
                 icon: Icons.hourglass_bottom_outlined,
                 title: 'Shelf Life',
                 value:
                     '${product.shelfLifeDays} days (≈${(product.shelfLifeDays / 30).round()} months)',
-                // --- UPDATED: Use theme color ---
                 color: colorScheme.secondary,
               ),
             ],
@@ -402,9 +406,7 @@ class _ProductDetailContent extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Text(
                         'Notes',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
+                        style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -502,7 +504,8 @@ class _ProductDetailContent extends ConsumerWidget {
             onPressed: () => Navigator.pop(context, true),
             // --- UPDATED: Use theme color ---
             style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -517,6 +520,7 @@ class _ProductDetailContent extends ConsumerWidget {
           const SnackBar(
             content: Text('Product deleted successfully'),
             behavior: SnackBarBehavior.floating,
+            duration: Duration(milliseconds: 500),// <- shorter time
           ),
         );
       }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pao_tracker/screens/home_screen.dart';
 import 'package:pao_tracker/screens/settings_screen.dart';
 import 'package:pao_tracker/screens/statistics_screen.dart';
+import 'package:pao_tracker/utils/notification_service.dart';
 // No longer need to import AppColors here
 // import 'package:pao_tracker/utils/colors.dart';
 
@@ -15,6 +16,12 @@ class MainNavScreen extends StatefulWidget {
 class _MainNavScreenState extends State<MainNavScreen>
     with TickerProviderStateMixin {
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationService().requestPermissions();
+  }
 
   // Assuming these screens exist at the paths.
   // If not, you might need to create placeholder widgets.

@@ -98,7 +98,7 @@ class ProductListNotifier extends StateNotifier<AsyncValue<List<ProductItem>>> {
       if (rows > 0) {
         state = state.when(
           data: (list) {
-            final newList = list.where((p) => p.id != id).toList();
+            final newList = list.where((p) => p.id.toString() != id).toList();
             return AsyncValue.data(newList);
           },
           loading: () => state,
