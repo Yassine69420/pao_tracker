@@ -185,12 +185,7 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                         children: [
                           Icon(cat.icon, size: 20, color: cat.color),
                           const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              cat.name,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
+                          Text(cat.name),
                         ],
                       ),
                     );
