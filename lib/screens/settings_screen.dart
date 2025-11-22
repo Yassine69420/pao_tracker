@@ -1,19 +1,29 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pao_tracker/utils/notification_preferences.dart';
 import '../app.dart';
 import '../utils/theme_preferences.dart';
+import '../utils/csv_exporter.dart';
+import '../utils/csv_importer.dart';
+import '../data/database_helper.dart';
+import 'package:file_picker/file_picker.dart';
+import '../providers/product_provider.dart'; // Needed for invalidating provider
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late bool _notificationsEnabled;
   late int _notificationDays;
   final _daysController = TextEditingController();
+  bool _isExporting = false;
+  bool _isImporting = false;
 
   @override
   void initState() {
@@ -26,7 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await NotificationPreferences.loadNotificationsEnabled();
     _notificationDays = await NotificationPreferences.loadNotificationDays();
     _daysController.text = _notificationDays.toString();
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   @override
@@ -47,8 +57,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-
-  // Show theme selection dialog
   void _showThemeDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -70,7 +78,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         themeNotifier.value = value;
                         await ThemePreferences.saveThemeMode(value); // persist
                       }
-                      Navigator.pop(context); // close dialog
+                      if (context.mounted)
+                        Navigator.pop(context); // close dialog
                     },
                   );
                 }).toList(),
@@ -80,6 +89,126 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       },
     );
+  }
+
+  Future<void> _handleExport(BuildContext context) async {
+    setState(() => _isExporting = true);
+
+    try {
+      final products = await DatabaseHelper.instance.getAllProducts();
+      if (products.isEmpty) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('No products to export.')));
+        return;
+      }
+
+      // Fetch categories for export
+      final categories = await DatabaseHelper.instance.getAllCategories();
+
+      final csvString = convertProductsToCsv(products, categories);
+      final bytes = utf8.encode(csvString);
+
+      // Pick save location
+      String? filePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save your CSV file',
+        fileName: 'products_export.csv',
+        bytes: bytes,
+      );
+
+      if (filePath == null) {
+        // User canceled the picker
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Export canceled.')));
+        return;
+      }
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Exported successfully to: $filePath')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Export failed: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _handleImport(BuildContext context) async {
+    setState(() => _isImporting = true);
+
+    try {
+      // Pick file
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        withData: true, // Get bytes directly
+      );
+
+      if (result == null || result.files.isEmpty) {
+        // User canceled
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Import canceled.')));
+        return;
+      }
+
+      final fileBytes = result.files.first.bytes;
+      String csvString;
+      if (fileBytes != null) {
+        csvString = utf8.decode(fileBytes);
+      } else {
+        // Fallback for some platforms if bytes are null but path exists
+        final path = result.files.single.path;
+        if (path != null) {
+          final file = File(path);
+          csvString = await file.readAsString();
+        } else {
+          throw Exception('Could not read file content.');
+        }
+      }
+
+      // Fetch categories for import resolution
+      final categories = await DatabaseHelper.instance.getAllCategories();
+
+      final products = parseCsv(csvString, categories);
+
+      if (products.isEmpty) {
+        throw Exception('No valid products found in CSV.');
+      }
+
+      await DatabaseHelper.instance.insertProductsBatch(products);
+
+      // Refresh the provider
+      ref.invalidate(productListProvider);
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Successfully imported ${products.length} products.'),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Import failed: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isImporting = false);
+    }
   }
 
   @override
@@ -104,17 +233,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSettingsTile(
             context,
             icon: Icons.upload_file_rounded,
-            title: 'Export All Products',
+            title: _isExporting ? 'Processing...' : 'Export All Products',
             subtitle: 'Save your product list as a CSV file.',
-            onTap: () => _showComingSoonDialog(context, 'Export'),
+            onTap: _isExporting ? null : () => _handleExport(context),
+            trailing: _isExporting
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
           ),
           const SizedBox(height: 8),
           _buildSettingsTile(
             context,
             icon: Icons.download_rounded,
-            title: 'Import Products',
+            title: _isImporting ? 'Importing...' : 'Import Products',
             subtitle: 'Import from a CSV file.',
-            onTap: () => _showComingSoonDialog(context, 'Import'),
+            onTap: (_isExporting || _isImporting)
+                ? null
+                : () => _handleImport(context),
+            trailing: _isImporting
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
           ),
           _buildSectionHeader('Appearance', textTheme, colorScheme),
           // Theme selection tile
@@ -146,7 +291,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildNotificationSettings(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Card(
-      color: colorScheme.surfaceVariant.withOpacity(0.3),
+      color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Column(
         children: [
@@ -226,10 +371,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required String title,
     required String subtitle,
     required VoidCallback? onTap,
+    Widget? trailing,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     return Card(
-      color: colorScheme.surfaceVariant.withOpacity(0.3),
+      color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -239,34 +385,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subtitle,
           style: TextStyle(color: colorScheme.onSurfaceVariant),
         ),
-        trailing: onTap != null
-            ? Icon(
-                Icons.chevron_right_rounded,
-                color: colorScheme.onSurfaceVariant,
-              )
-            : null,
+        trailing:
+            trailing ??
+            (onTap != null
+                ? Icon(
+                    Icons.chevron_right_rounded,
+                    color: colorScheme.onSurfaceVariant,
+                  )
+                : null),
         onTap: onTap,
-      ),
-    );
-  }
-
-  // Coming soon dialog
-  void _showComingSoonDialog(BuildContext context, String feature) {
-    final colorScheme = Theme.of(context).colorScheme;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        icon: Icon(Icons.build_outlined, size: 32, color: colorScheme.primary),
-        title: Text('$feature Coming Soon'),
-        content: const Text(
-          'This feature is currently under development. Stay tuned!',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK', style: TextStyle(color: colorScheme.primary)),
-          ),
-        ],
       ),
     );
   }

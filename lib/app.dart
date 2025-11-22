@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'screens/widgets/main_nav_screen.dart';
 import 'utils/colors.dart';
 
-
-/// Global theme notifier
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
 
 class MyApp extends StatelessWidget {

@@ -1,7 +1,6 @@
 import 'package:pao_tracker/data/database_helper.dart';
 import '../models/product_item.dart';
 
-/// Repository responsible for CRUD operations related to `ProductItem`.
 class ProductRepository {
   ProductRepository._(this._dbProvider);
 
@@ -11,8 +10,6 @@ class ProductRepository {
 
   final DatabaseHelper _dbProvider;
 
-  /// Create/insert a product. If `item.id` is already present in the DB it
-  /// will be replaced because DatabaseHelper uses ConflictAlgorithm.replace.
   Future<ProductItem> create(ProductItem item) async {
     final product = item.id.isEmpty
         ? item.copyWith(id: DatabaseHelper.generateId())
@@ -22,7 +19,6 @@ class ProductRepository {
     return product;
   }
 
-  /// Convenience to create a ProductItem from fields and insert it.
   Future<ProductItem> createFromFields({
     required String name,
     String? brand,
@@ -58,13 +54,11 @@ class ProductRepository {
     return item;
   }
 
-  /// Read — get product by id. Returns `null` if not found.
   Future<ProductItem?> getById(String id) async {
     if (id.isEmpty) return null;
     return await _dbProvider.getProductById(id);
   }
 
-  /// Read — get all products with optional pagination and custom ordering.
   Future<List<ProductItem>> getAll({
     int? limit,
     int? offset,
@@ -77,7 +71,6 @@ class ProductRepository {
     );
   }
 
-  /// Update an existing product. Returns the number of rows affected.
   Future<int> update(ProductItem item) async {
     if (item.id.isEmpty) {
       throw ArgumentError('Product id must be provided to update an item.');
@@ -85,7 +78,6 @@ class ProductRepository {
     return await _dbProvider.updateProduct(item);
   }
 
-  /// Delete a product by id. Returns the number of rows deleted.
   Future<int> delete(String id) async {
     if (id.isEmpty) {
       throw ArgumentError('id must not be empty for delete operation.');
@@ -93,7 +85,6 @@ class ProductRepository {
     return await _dbProvider.deleteProduct(id);
   }
 
-  /// Search products by name or brand.
   Future<List<ProductItem>> search(
     String query, {
     int? limit,
@@ -110,12 +101,10 @@ class ProductRepository {
     );
   }
 
-  /// Get products that are already expired.
   Future<List<ProductItem>> getExpired() async {
     return await _dbProvider.getExpiredProducts();
   }
 
-  /// Get products that will expire within the next [withinDays] days.
   Future<List<ProductItem>> getExpiringWithin(int withinDays) async {
     if (withinDays < 0) {
       throw ArgumentError.value(withinDays, 'withinDays', 'must be >= 0');
@@ -123,13 +112,11 @@ class ProductRepository {
     return await _dbProvider.getExpiringWithin(withinDays);
   }
 
-  /// Insert multiple products in a batch (transactional). Useful for imports.
   Future<void> insertBatch(List<ProductItem> items) async {
     if (items.isEmpty) return;
     return await _dbProvider.insertProductsBatch(items);
   }
 
-  /// Close the underlying database (mostly useful for tests).
   Future<void> close() async {
     await _dbProvider.close();
   }

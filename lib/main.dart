@@ -9,10 +9,8 @@ import 'app.dart';
 import 'utils/notification_service.dart';
 import 'utils/theme_preferences.dart';
 
-/// Small helper so we can fire-and-forget futures while still catching errors.
 void _unawaited(Future<void> f) {
   f.catchError((e, st) {
-    // You can log this to your analytics/logger
     debugPrint('Background task error: $e\n$st');
   });
 }
@@ -20,30 +18,18 @@ void _unawaited(Future<void> f) {
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Start lightweight synchronous setup if needed (very small tasks only).
-  // Do NOT await heavy operations here — they should run in the background.
-
-  // Start background initializations BEFORE runApp if they are quick to start,
-  // but do NOT await them so the app shows immediately.
   _unawaited(_initEverythingInBackground());
 
-  // Immediately run the app so splash disappears quickly.
   runApp(const ProviderScope(child: MyApp()));
 }
 
-/// Perform heavier initialization work in background (non-blocking to startup).
-/// This includes DB init, notification init, loading saved theme, etc.
 Future<void> _initEverythingInBackground() async {
-  // 1) Load theme early and update themeNotifier (so UI will update when available).
   _unawaited(_loadTheme());
 
-  // 2) Initialize database in background.
   _unawaited(_initDatabase());
 
-  // 3) Initialize notification service in background.
   _unawaited(_initNotifications());
 
-  // 4) Schedule notifications once first frame has rendered (UI ready).
   WidgetsBinding.instance.addPostFrameCallback((_) {
     _unawaited(_scheduleNotifications());
   });
@@ -73,11 +59,12 @@ Future<void> _initNotifications() async {
     await NotificationService().init();
     debugPrint('✅ Notification service successfully initialized (background).');
   } catch (e, st) {
-    debugPrint('❌ Notification service initialization failed (background): $e\n$st');
+    debugPrint(
+      '❌ Notification service initialization failed (background): $e\n$st',
+    );
   }
 }
 
-/// Schedules notifications for products. Runs in background and does not block UI.
 Future<void> _scheduleNotifications() async {
   try {
     final notificationsEnabled =
@@ -97,39 +84,38 @@ Future<void> _scheduleNotifications() async {
     const int expiringSoonNotificationIdOffset = 1;
     const int expiredNotificationIdOffset = 2;
 
-    // Collect scheduling futures to run concurrently (but not awaited in main thread).
     final List<Future<void>> schedulingFutures = [];
 
     for (final product in products) {
-      // Use stable integer id base. If you have a numeric id in DB prefer that.
       final int baseId = product.id.hashCode;
 
-      // "Expiring soon" notification
       final expiringSoonDate = product.expiryDate.subtract(
         Duration(days: notificationDays),
       );
 
       if (expiringSoonDate.isAfter(now)) {
-        schedulingFutures.add(_safeScheduleNotification(
-          id: baseId + expiringSoonNotificationIdOffset,
-          title: 'Product Expiring Soon',
-          body: '${product.name} is expiring in $notificationDays days.',
-          scheduledDate: expiringSoonDate,
-        ));
+        schedulingFutures.add(
+          _safeScheduleNotification(
+            id: baseId + expiringSoonNotificationIdOffset,
+            title: 'Product Expiring Soon',
+            body: '${product.name} is expiring in $notificationDays days.',
+            scheduledDate: expiringSoonDate,
+          ),
+        );
       }
 
-      // "Expired" notification
       if (product.expiryDate.isAfter(now)) {
-        schedulingFutures.add(_safeScheduleNotification(
-          id: baseId + expiredNotificationIdOffset,
-          title: 'Product Expired',
-          body: '${product.name} has expired.',
-          scheduledDate: product.expiryDate,
-        ));
+        schedulingFutures.add(
+          _safeScheduleNotification(
+            id: baseId + expiredNotificationIdOffset,
+            title: 'Product Expired',
+            body: '${product.name} has expired.',
+            scheduledDate: product.expiryDate,
+          ),
+        );
       }
     }
 
-    // Run scheduling concurrently but catch errors inside each scheduling call.
     if (schedulingFutures.isNotEmpty) {
       await Future.wait(schedulingFutures);
       debugPrint('Scheduled ${schedulingFutures.length} notification(s).');
@@ -139,7 +125,6 @@ Future<void> _scheduleNotifications() async {
   }
 }
 
-/// Wraps the actual NotificationService call with try/catch so scheduling errors don't bubble up.
 Future<void> _safeScheduleNotification({
   required int id,
   required String title,
@@ -147,9 +132,10 @@ Future<void> _safeScheduleNotification({
   required DateTime scheduledDate,
 }) async {
   try {
-    // Avoid scheduling notifications in the past.
     final now = DateTime.now();
-    final scheduled = scheduledDate.isAfter(now) ? scheduledDate : now.add(const Duration(seconds: 5));
+    final scheduled = scheduledDate.isAfter(now)
+        ? scheduledDate
+        : now.add(const Duration(seconds: 5));
 
     await NotificationService().scheduleNotification(
       id: id,

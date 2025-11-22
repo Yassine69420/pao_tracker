@@ -1,37 +1,32 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart'; // For Colors
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/product_item.dart';
+import '../models/category.dart';
 
-/// SQLite database provider / helper for `ProductItem`.
-///
-/// Usage:
-///   final dbp = DatabaseHelper.instance;
-///   await dbp.init(); // optional - will lazy initialize on first access
-///   await dbp.insertProduct(product);
-///   final all = await dbp.getAllProducts();
 class DatabaseHelper {
   DatabaseHelper._();
 
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static const _dbFileName = 'pao_tracker.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2; // Incremented version
 
   Database? _db;
 
-  /// Initialize DB explicitly (optional - other methods will lazily init).
   Future<void> init() async {
     if (_db != null && _db!.isOpen) return;
     _db = await _initDB();
   }
 
-  /// Returns a ready-to-use database instance, initializing it if necessary.
   Future<Database> get database async {
     if (_db != null && _db!.isOpen) return _db!;
     _db = await _initDB();
@@ -42,7 +37,6 @@ class DatabaseHelper {
     final Directory docsDir = await getApplicationDocumentsDirectory();
     final String dbPath = p.join(docsDir.path, _dbFileName);
 
-    // Ensure parent directory exists
     try {
       await Directory(p.dirname(dbPath)).create(recursive: true);
     } catch (_) {}
@@ -57,33 +51,155 @@ class DatabaseHelper {
   }
 
   FutureOr<void> _onConfigure(Database db) async {
-    // Enable foreign keys if you use them in the future.
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
   FutureOr<void> _onCreate(Database db, int version) async {
-    // Create tables. Use the SQL statement from ProductItem model.
     await db.execute(ProductItem.createTable);
-    // You can create indexes here if needed, for example on name or opened_date:
+    await db.execute(Category.createTable); // Create categories table
+
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_product_items_name ON ${ProductItem.tableName}(${ProductItem.colName});',
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_product_items_opened_date ON ${ProductItem.tableName}(${ProductItem.colOpenedDate});',
     );
+
+    await _seedCategories(db); // Seed default categories
   }
 
   FutureOr<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle migrations here. Keep minimal for now.
-    // Example:
-    // if (oldVersion < 2) {
-    //   await db.execute('ALTER TABLE ${ProductItem.tableName} ADD COLUMN new_column TEXT;');
-    // }
+    if (oldVersion < 2) {
+      // 1. Create categories table
+      await db.execute(Category.createTable);
+
+      // 2. Seed categories
+      await _seedCategories(db);
+
+      // 3. Add category_id column to product_items
+      // SQLite doesn't support adding a column with a foreign key constraint in one go easily,
+      // but since we are just adding a column, we can do it.
+      // However, to be safe and simple, we just add the column.
+      // Note: We are NOT enforcing foreign key constraint strictly here on the column definition level
+      // via ALTER TABLE because SQLite support varies. We rely on app logic or rebuild if needed.
+      // But for a simple column add:
+      await db.execute(
+        'ALTER TABLE ${ProductItem.tableName} ADD COLUMN ${ProductItem.colCategoryId} TEXT;',
+      );
+    }
   }
 
-  // ----------------------------
-  // CRUD operations for ProductItem
-  // ----------------------------
+  Future<void> _seedCategories(Database db) async {
+    final categories = [
+      Category(
+        id: 'cat_skincare',
+        name: 'Skincare',
+        iconCodepoint: Icons.face.codePoint,
+        colorValue: Colors.pinkAccent.value,
+      ),
+      Category(
+        id: 'cat_makeup',
+        name: 'Makeup',
+        iconCodepoint: Icons.brush.codePoint,
+        colorValue: Colors.purpleAccent.value,
+      ),
+      Category(
+        id: 'cat_haircare',
+        name: 'Haircare',
+        iconCodepoint: Icons.content_cut.codePoint,
+        colorValue: Colors.brown.value,
+      ),
+      Category(
+        id: 'cat_body',
+        name: 'Body Care',
+        iconCodepoint: Icons.accessibility_new.codePoint,
+        colorValue: Colors.orangeAccent.value,
+      ),
+      Category(
+        id: 'cat_bath',
+        name: 'Bath & Shower',
+        iconCodepoint: Icons.shower.codePoint,
+        colorValue: Colors.lightBlueAccent.value,
+      ),
+      Category(
+        id: 'cat_suncare',
+        name: 'Sun Care (SPF)',
+        iconCodepoint: Icons.wb_sunny.codePoint,
+        colorValue: Colors.amber.value,
+      ),
+      Category(
+        id: 'cat_fragrance',
+        name: 'Fragrance',
+        iconCodepoint: Icons.local_florist.codePoint,
+        colorValue: Colors.teal.value,
+      ),
+      Category(
+        id: 'cat_oralcare',
+        name: 'Oral Care',
+        iconCodepoint: Icons.health_and_safety.codePoint,
+        colorValue: Colors.blueAccent.value,
+      ),
+      Category(
+        id: 'cat_nails',
+        name: 'Nails',
+        iconCodepoint: Icons.color_lens.codePoint,
+        colorValue: Colors.redAccent.value,
+      ),
+      Category(
+        id: 'cat_mens',
+        name: 'Men\'s Grooming',
+        iconCodepoint: Icons.person.codePoint,
+        colorValue: Colors.blueGrey.value,
+      ),
+      Category(
+        id: 'cat_baby',
+        name: 'Baby Care',
+        iconCodepoint: Icons.child_care.codePoint,
+        colorValue: Colors.lightGreen.value,
+      ),
+      Category(
+        id: 'cat_medication',
+        name: 'Medication',
+        iconCodepoint: Icons.medical_services.codePoint,
+        colorValue: Colors.red.value,
+      ),
+      Category(
+        id: 'cat_supplements',
+        name: 'Supplements',
+        iconCodepoint: Icons.medication_liquid.codePoint,
+        colorValue: Colors.green.value,
+      ),
+      Category(
+        id: 'cat_cleaning',
+        name: 'Cleaning Products',
+        iconCodepoint: Icons.cleaning_services.codePoint,
+        colorValue: Colors.cyan.value,
+      ),
+      Category(
+        id: 'cat_other',
+        name: 'Other',
+        iconCodepoint: Icons.category.codePoint,
+        colorValue: Colors.grey.value,
+      ),
+    ];
+
+
+    final batch = db.batch();
+    for (final cat in categories) {
+      batch.insert(
+        Category.tableName,
+        cat.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<List<Category>> getAllCategories() async {
+    final db = await database;
+    final maps = await db.query(Category.tableName, orderBy: Category.colName);
+    return maps.map((m) => Category.fromMap(m)).toList();
+  }
 
   Future<void> insertProduct(ProductItem item) async {
     final db = await database;
@@ -141,7 +257,6 @@ class DatabaseHelper {
     return maps.map((m) => ProductItem.fromMap(m)).toList();
   }
 
-  /// Search products by name or brand using a case-insensitive LIKE.
   Future<List<ProductItem>> searchProducts(
     String query, {
     int? limit,
@@ -160,14 +275,10 @@ class DatabaseHelper {
     return maps.map((m) => ProductItem.fromMap(m)).toList();
   }
 
-  /// Returns products that are already expired (expiryDate < now).
-  ///
-  /// Note: expiryDate = opened_date + shelf_life_days.
-  /// We can filter with opened_date + shelf_life_days * 86400000 < nowMillis
   Future<List<ProductItem>> getExpiredProducts() async {
     final db = await database;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
-    // Compute expiry in milliseconds: opened_date + shelf_life_days * 86400000
+
     final maps = await db.rawQuery(
       '''
       SELECT * FROM ${ProductItem.tableName}
@@ -179,7 +290,6 @@ class DatabaseHelper {
     return maps.map((m) => ProductItem.fromMap(m)).toList();
   }
 
-  /// Returns products that will expire within the next [withinDays] days.
   Future<List<ProductItem>> getExpiringWithin(int withinDays) async {
     final db = await database;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -197,7 +307,6 @@ class DatabaseHelper {
     return maps.map((m) => ProductItem.fromMap(m)).toList();
   }
 
-  /// Batch insert with transaction for performance.
   Future<void> insertProductsBatch(List<ProductItem> items) async {
     if (items.isEmpty) return;
     final db = await database;
@@ -214,7 +323,6 @@ class DatabaseHelper {
     });
   }
 
-  /// Close DB when done (usually not needed - keep DB open for app lifecycle).
   Future<void> close() async {
     if (_db != null && _db!.isOpen) {
       await _db!.close();
@@ -222,20 +330,12 @@ class DatabaseHelper {
     _db = null;
   }
 
-  // ----------------------------
-  // Utilities
-  // ----------------------------
-
-  /// Helper to generate a simple unique string id (ms since epoch + random suffix).
-  /// You may replace with a proper UUID generator if desired.
   static String generateId() {
     final ms = DateTime.now().millisecondsSinceEpoch;
     final rnd = (DateTime.now().microsecondsSinceEpoch % 100000).toString();
     return 'prod_${ms}_$rnd';
   }
 
-  /// Convert a ProductItem into a map suitable for searching by text (if you
-  /// later add full text search tables).
   static Map<String, Object?> productToSearchMap(ProductItem item) {
     return {
       ProductItem.colId: item.id,

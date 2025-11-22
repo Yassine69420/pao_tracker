@@ -1,8 +1,6 @@
 import 'dart:convert';
 
-/// Model representing a product item with PAO and expiry information.
 class ProductItem {
-  // Database table and column names
   static const String tableName = 'product_items';
   static const String colId = 'id';
   static const String colName = 'name';
@@ -10,7 +8,6 @@ class ProductItem {
   static const String colOpenedDate = 'opened_date';
   static const String colShelfLifeDays = 'shelf_life_days';
   static const String colExpiryDate = 'expiry_date';
-  // --- NEW FIELD ---
   static const String colUnopenedExpiryDate = 'unopened_expiry_date';
   static const String colIsOpened = 'is_opened';
   static const String colLabel = 'label';
@@ -18,7 +15,10 @@ class ProductItem {
   static const String colFavorite = 'favorite';
   static const String colNotes = 'notes';
 
-  static const String createTable = '''
+  static const String colCategoryId = 'category_id';
+
+  static const String createTable =
+      '''
 CREATE TABLE $tableName (
   $colId TEXT PRIMARY KEY,
   $colName TEXT NOT NULL,
@@ -31,7 +31,8 @@ CREATE TABLE $tableName (
   $colLabel TEXT NOT NULL,
   $colPhotoPath TEXT,
   $colFavorite INTEGER NOT NULL,
-  $colNotes TEXT
+  $colNotes TEXT,
+  $colCategoryId TEXT
 );
 ''';
 
@@ -41,12 +42,13 @@ CREATE TABLE $tableName (
   final DateTime openedDate;
   final int shelfLifeDays;
   final DateTime expiryDate;
-  final DateTime? unopenedExpiryDate; // --- NEW FIELD ---
+  final DateTime? unopenedExpiryDate;
   final bool isOpened;
   final String label;
   final String? photoPath;
   final bool favorite;
   final List<String>? notes;
+  final String? categoryId;
 
   ProductItem({
     required this.id,
@@ -55,12 +57,13 @@ CREATE TABLE $tableName (
     required this.openedDate,
     required this.shelfLifeDays,
     required this.expiryDate,
-    this.unopenedExpiryDate, // --- NEW FIELD ---
+    this.unopenedExpiryDate,
     this.isOpened = false,
     required this.label,
     this.photoPath,
     this.favorite = false,
     this.notes,
+    this.categoryId,
   });
 
   int get remainingDays {
@@ -76,24 +79,24 @@ CREATE TABLE $tableName (
       colOpenedDate: openedDate.millisecondsSinceEpoch,
       colShelfLifeDays: shelfLifeDays,
       colExpiryDate: expiryDate.millisecondsSinceEpoch,
-      colUnopenedExpiryDate:
-          unopenedExpiryDate?.millisecondsSinceEpoch, // --- NEW FIELD ---
+      colUnopenedExpiryDate: unopenedExpiryDate?.millisecondsSinceEpoch,
       colIsOpened: isOpened ? 1 : 0,
       colLabel: label,
       colPhotoPath: photoPath,
       colFavorite: favorite ? 1 : 0,
       colNotes: notes == null ? null : json.encode(notes),
+      colCategoryId: categoryId,
     };
   }
 
   factory ProductItem.fromMap(Map<String, Object?> map) {
     DateTime parseDate(dynamic raw) {
       if (raw is int) return DateTime.fromMillisecondsSinceEpoch(raw);
-      if (raw is String) return DateTime.fromMillisecondsSinceEpoch(int.parse(raw));
+      if (raw is String)
+        return DateTime.fromMillisecondsSinceEpoch(int.parse(raw));
       throw FormatException('Unsupported date type: ${raw.runtimeType}');
     }
 
-    // --- NEW HELPER ---
     DateTime? parseDateNullable(dynamic raw) {
       if (raw == null) return null;
       return parseDate(raw);
@@ -111,7 +114,8 @@ CREATE TABLE $tableName (
       if (raw is String) {
         try {
           final decoded = json.decode(raw);
-          if (decoded is List) return decoded.map((e) => e?.toString() ?? '').toList();
+          if (decoded is List)
+            return decoded.map((e) => e?.toString() ?? '').toList();
           return [raw];
         } catch (_) {
           return [raw];
@@ -129,13 +133,13 @@ CREATE TABLE $tableName (
           ? map[colShelfLifeDays] as int
           : int.parse(map[colShelfLifeDays].toString()),
       expiryDate: parseDate(map[colExpiryDate]),
-      unopenedExpiryDate:
-          parseDateNullable(map[colUnopenedExpiryDate]), // --- NEW FIELD ---
+      unopenedExpiryDate: parseDateNullable(map[colUnopenedExpiryDate]),
       isOpened: parseBool(map[colIsOpened]),
       label: map[colLabel] as String,
       photoPath: map[colPhotoPath] as String?,
       favorite: parseBool(map[colFavorite]),
       notes: parseNotes(map[colNotes]),
+      categoryId: map[colCategoryId] as String?,
     );
   }
 
@@ -146,12 +150,13 @@ CREATE TABLE $tableName (
     DateTime? openedDate,
     int? shelfLifeDays,
     DateTime? expiryDate,
-    Object? unopenedExpiryDate = _Undefined, // --- NEW FIELD ---
+    Object? unopenedExpiryDate = _Undefined,
     bool? isOpened,
     String? label,
     Object? photoPath = _Undefined,
     bool? favorite,
     Object? notes = _Undefined,
+    Object? categoryId = _Undefined,
   }) {
     return ProductItem(
       id: id ?? this.id,
@@ -162,18 +167,41 @@ CREATE TABLE $tableName (
       expiryDate: expiryDate ?? this.expiryDate,
       unopenedExpiryDate: unopenedExpiryDate == _Undefined
           ? this.unopenedExpiryDate
-          : unopenedExpiryDate as DateTime?, // --- NEW FIELD ---
+          : unopenedExpiryDate as DateTime?,
       isOpened: isOpened ?? this.isOpened,
       label: label ?? this.label,
-      photoPath: photoPath == _Undefined ? this.photoPath : photoPath as String?,
+      photoPath: photoPath == _Undefined
+          ? this.photoPath
+          : photoPath as String?,
       favorite: favorite ?? this.favorite,
       notes: notes == _Undefined ? this.notes : notes as List<String>?,
+      categoryId: categoryId == _Undefined
+          ? this.categoryId
+          : categoryId as String?,
     );
   }
 
   @override
   String toString() {
-    return 'ProductItem(id: $id, name: $name, brand: $brand, openedDate: $openedDate, shelfLifeDays: $shelfLifeDays, expiryDate: $expiryDate, unopenedExpiryDate: $unopenedExpiryDate, isOpened: $isOpened, label: $label, photoPath: $photoPath, favorite: $favorite, notes: $notes)';
+    return 'ProductItem(id: $id, name: $name, brand: $brand, openedDate: $openedDate, shelfLifeDays: $shelfLifeDays, expiryDate: $expiryDate, unopenedExpiryDate: $unopenedExpiryDate, isOpened: $isOpened, label: $label, photoPath: $photoPath, favorite: $favorite, notes: $notes, categoryId: $categoryId)';
+  }
+
+  List<String> toCsvRow() {
+    return [
+      id,
+      name,
+      brand ?? '',
+      openedDate.toIso8601String(),
+      shelfLifeDays.toString(),
+      expiryDate.toIso8601String(),
+      unopenedExpiryDate?.toIso8601String() ?? '',
+      isOpened ? 'true' : 'false',
+      label,
+      photoPath ?? '',
+      favorite ? 'true' : 'false',
+      notes?.join('|') ?? '',
+      // Category will be handled by the exporter logic to resolve name
+    ];
   }
 }
 

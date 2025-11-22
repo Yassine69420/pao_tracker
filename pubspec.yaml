@@ -25,7 +25,8 @@ dependencies:
   shared_preferences: ^2.1.1
   flutter_local_notifications: ^17.2.1
   timezone: ^0.9.4
-
+  csv: ^6.0.0        # For CSV generation
+  file_picker: ^10.3.6
 # -------------------------
 # dev tools
 # -------------------------

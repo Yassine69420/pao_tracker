@@ -1,9 +1,13 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/product_provider.dart';
 import '../models/product_item.dart';
+import '../models/category.dart';
+import '../data/database_helper.dart';
 import '../utils/colors.dart';
-import 'package:pao_tracker/screens/widgets/product_card.dart'; // Imported the separated widget
+import 'package:pao_tracker/screens/widgets/product_card.dart';
 import 'add_edit_screen.dart';
 import 'detail_screen.dart';
 
@@ -31,11 +35,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ProductFilter _selectedFilter = ProductFilter.all;
   ProductSort _selectedSort = ProductSort.defaults;
 
+  // Category State
+  Map<String, Category> _categoryMap = {};
+  Category? _selectedCategory;
+  bool _isLoadingCategories = true;
+
   @override
   void initState() {
     super.initState();
     // Initial load
-    Future.microtask(() => ref.read(productListProvider.notifier).refresh());
+    Future.microtask(() {
+      ref.read(productListProvider.notifier).refresh();
+      _loadCategories();
+    });
+  }
+
+  Future<void> _loadCategories() async {
+    final categories = await DatabaseHelper.instance.getAllCategories();
+    if (mounted) {
+      setState(() {
+        _categoryMap = {for (var c in categories) c.id: c};
+        _isLoadingCategories = false;
+      });
+    }
   }
 
   /// Helper to get the display name for a filter
@@ -70,25 +92,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  /// Client-side filtering based on the selected chip
+  /// Client-side filtering
   List<ProductItem> _getFilteredProducts(
     List<ProductItem> products,
     ProductFilter filter,
+    Category? category,
   ) {
+    var filtered = products;
+
+    // 1. Apply Status Filter
     switch (filter) {
       case ProductFilter.favorites:
-        return products.where((p) => p.favorite).toList();
+        filtered = filtered.where((p) => p.favorite).toList();
+        break;
       case ProductFilter.expiring:
-        return products
+        filtered = filtered
             .where((p) => p.remainingDays <= 7 && p.remainingDays >= 0)
             .toList();
+        break;
       case ProductFilter.expired:
-        return products.where((p) => p.remainingDays < 0).toList();
+        filtered = filtered.where((p) => p.remainingDays < 0).toList();
+        break;
       case ProductFilter.safe:
-        return products.where((p) => p.remainingDays > 7).toList();
+        filtered = filtered.where((p) => p.remainingDays > 7).toList();
+        break;
       case ProductFilter.all:
-        return products;
+        // No status filter
+        break;
     }
+
+    // 2. Apply Category Filter
+    if (category != null) {
+      filtered = filtered.where((p) => p.categoryId == category.id).toList();
+    }
+
+    return filtered;
   }
 
   // Client-side sorting
@@ -96,12 +134,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     List<ProductItem> products,
     ProductSort sort,
   ) {
-    // If default, just return the list from the filter (which is already a copy)
     if (sort == ProductSort.defaults) {
       return products;
     }
 
-    // Create a new list to avoid modifying the original
     final sortedList = List<ProductItem>.from(products);
 
     switch (sort) {
@@ -142,8 +178,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     switch (filter) {
       case ProductFilter.all:
         labelColor = theme.colorScheme.primary;
-        borderColor =
-            isSelected ? Colors.transparent : theme.colorScheme.primary;
+        borderColor = isSelected
+            ? Colors.transparent
+            : theme.colorScheme.primary;
         chipBackgroundColor = isSelected
             ? theme.colorScheme.primaryContainer
             : theme.colorScheme.surface;
@@ -153,8 +190,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         break;
       case ProductFilter.favorites:
         labelColor = theme.colorScheme.tertiary;
-        borderColor =
-            isSelected ? Colors.transparent : theme.colorScheme.tertiary;
+        borderColor = isSelected
+            ? Colors.transparent
+            : theme.colorScheme.tertiary;
         chipBackgroundColor = isSelected
             ? theme.colorScheme.tertiaryContainer
             : theme.colorScheme.surface;
@@ -172,8 +210,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         break;
       case ProductFilter.expired:
         labelColor = theme.colorScheme.error;
-        borderColor =
-            isSelected ? Colors.transparent : theme.colorScheme.error;
+        borderColor = isSelected ? Colors.transparent : theme.colorScheme.error;
         chipBackgroundColor = isSelected
             ? theme.colorScheme.errorContainer
             : theme.colorScheme.surface;
@@ -202,6 +239,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final productListAsync = ref.watch(productListProvider);
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('My Products'),
@@ -209,6 +247,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         actions: [
+          // CATEGORY FILTER BUTTON
+          IconButton(
+            icon: Icon(
+              _selectedCategory == null
+                  ? Icons.filter_list
+                  : Icons.filter_list_off,
+              color: _selectedCategory == null ? null : colorScheme.primary,
+            ),
+            onPressed: () => _showCategoryFilter(context),
+            tooltip: 'Filter by Category',
+          ),
           // SORT BUTTON
           IconButton(
             icon: const Icon(Icons.sort_rounded),
@@ -219,85 +268,145 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () {
               ref.read(productListProvider.notifier).refresh();
+              _loadCategories();
             },
             tooltip: 'Refresh',
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: SearchBar(
-              hintText: 'Search products...',
-              leading: const Icon(Icons.search),
-              backgroundColor: MaterialStateProperty.all(
-                colorScheme.surfaceVariant.withOpacity(0.5),
-              ),
-              elevation: MaterialStateProperty.all(0),
-              shape: MaterialStateProperty.all(
-                RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28)),
-              ),
-              onChanged: (value) {
-                setState(() => _searchQuery = value);
-                if (value.isEmpty) {
-                  ref.read(productListProvider.notifier).refresh();
-                } else {
-                  ref.read(productListProvider.notifier).search(value);
-                }
-              },
-            ),
-          ),
-          // Filter chips
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: ProductFilter.values.map((filter) {
-                  final isSelected = _selectedFilter == filter;
-                  final style = _getChipStyle(filter, isSelected, context);
-                  final chipBackgroundColor = style.$1;
-                  final labelColor = style.$2;
-                  final borderColor = style.$3;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: FilterChip(
-                      label: Text(_getFilterName(filter)),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() => _selectedFilter = filter);
-                        }
-                      },
-                      showCheckmark: false,
-                      backgroundColor: chipBackgroundColor,
-                      selectedColor: chipBackgroundColor,
-                      labelStyle: TextStyle(
-                        color: labelColor,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w500,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        side: BorderSide(color: borderColor),
-                      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(productListProvider.notifier).refresh();
+          await _loadCategories();
+        },
+        child: CustomScrollView(
+          slivers: [
+            // Search bar
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: SearchBar(
+                  hintText: 'Search products...',
+                  leading: const Icon(Icons.search),
+                  backgroundColor: MaterialStateProperty.all(
+                    colorScheme.surfaceVariant.withOpacity(0.5),
+                  ),
+                  elevation: MaterialStateProperty.all(0),
+                  shape: MaterialStateProperty.all(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
                     ),
-                  );
-                }).toList(),
+                  ),
+                  onChanged: (value) {
+                    setState(() => _searchQuery = value);
+                    if (value.isEmpty) {
+                      ref.read(productListProvider.notifier).refresh();
+                    } else {
+                      ref.read(productListProvider.notifier).search(value);
+                    }
+                  },
+                ),
               ),
             ),
-          ),
-          // Product list
-          Expanded(
-            child: productListAsync.when(
+
+            // Active Category Filter Indicator
+            if (_selectedCategory != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Category:',
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: InputChip(
+                          label: Text(
+                            _selectedCategory!.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          avatar: Icon(
+                            _selectedCategory!.icon,
+                            size: 16,
+                            color: _selectedCategory!.color,
+                          ),
+                          onDeleted: () {
+                            setState(() {
+                              _selectedCategory = null;
+                            });
+                          },
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          backgroundColor: colorScheme.secondaryContainer,
+                          labelStyle: TextStyle(
+                            color: colorScheme.onSecondaryContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Filter chips
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ProductFilter.values.map((filter) {
+                      final isSelected = _selectedFilter == filter;
+                      final style = _getChipStyle(filter, isSelected, context);
+                      final chipBackgroundColor = style.$1;
+                      final labelColor = style.$2;
+                      final borderColor = style.$3;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: FilterChip(
+                          label: Text(_getFilterName(filter)),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => _selectedFilter = filter);
+                            }
+                          },
+                          showCheckmark: false,
+                          backgroundColor: chipBackgroundColor,
+                          selectedColor: chipBackgroundColor,
+                          labelStyle: TextStyle(
+                            color: labelColor,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(color: borderColor),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+
+            // Product list
+            productListAsync.when(
               data: (products) {
                 // 1. Apply filtering
                 final filteredProducts = _getFilteredProducts(
                   products,
                   _selectedFilter,
+                  _selectedCategory,
                 );
 
                 // 2. Apply sorting
@@ -308,16 +417,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 if (displayedProducts.isEmpty) {
                   // Pass the original *unsorted* list length to check if DB is empty
-                  return _buildEmptyState(products.isEmpty);
+                  return SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _buildEmptyState(products.isEmpty),
+                  );
                 }
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    await ref.read(productListProvider.notifier).refresh();
-                  },
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
-                    itemCount: displayedProducts.length,
-                    itemBuilder: (context, index) {
+
+                return SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
                       final product = displayedProducts[index];
                       // Use Dismissible for swipe-to-delete
                       return Dismissible(
@@ -333,27 +442,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         background: _buildDismissibleBackground(context),
                         child: ProductCard(
                           product: product,
-                          onTap: () =>
-                              _navigateToDetail(context, product.id),
+                          category: product.categoryId != null
+                              ? _categoryMap[product.categoryId]
+                              : null,
+                          onTap: () => _navigateToDetail(context, product.id),
                         ),
                       );
-                    },
+                    }, childCount: displayedProducts.length),
                   ),
                 );
               },
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => _buildErrorState(error),
+              loading: () => const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, stack) => SliverFillRemaining(
+                hasScrollBody: false,
+                child: _buildErrorState(error),
+              ),
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 90.0),
-        child: FloatingActionButton.extended(
-          onPressed: () => _navigateToAddEdit(context),
-          icon: const Icon(Icons.add),
-          label: const Text('Add Product'),
+          ],
         ),
       ),
     );
@@ -384,9 +492,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_searchQuery.isNotEmpty) {
       title = 'No products found';
       subtitle = "Try a different search term for '$_searchQuery'";
-    } else if (_selectedFilter != ProductFilter.all) {
+    } else if (_selectedFilter != ProductFilter.all ||
+        _selectedCategory != null) {
       title = 'No products match filter';
-      subtitle = 'Try selecting "All" to see all your products';
+      subtitle = 'Try clearing filters to see all your products';
     } else if (isDatabaseEmpty) {
       title = 'No products yet';
       subtitle = 'Tap + to add your first product';
@@ -395,37 +504,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       subtitle = 'Try selecting a different filter or sort';
     }
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.inventory_2_outlined,
-            size: 80,
-            color: Theme.of(context)
-                .colorScheme
-                .onSurfaceVariant
-                .withOpacity(0.5),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurfaceVariant
-                      .withOpacity(0.7),
-                ),
-          ),
-        ],
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 80,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withOpacity(0.5),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant.withOpacity(0.7),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -433,7 +544,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Build the error state widget
   Widget _buildErrorState(Object error) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -447,8 +558,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Text(
               'Something went wrong',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
+                color: Theme.of(context).colorScheme.error,
+              ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
@@ -473,8 +585,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _navigateToAddEdit(BuildContext context, [ProductItem? product]) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-          builder: (context) => AddEditScreen(product: product)),
+      MaterialPageRoute(builder: (context) => AddEditScreen(product: product)),
     );
     // Refresh after returning
     ref.read(productListProvider.notifier).refresh();
@@ -484,10 +595,84 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-          builder: (context) => DetailScreen(productId: productId)),
+        builder: (context) => DetailScreen(productId: productId),
+      ),
     );
     // Refresh after returning
     ref.read(productListProvider.notifier).refresh();
+  }
+
+  // Shows the category filter modal bottom sheet
+  void _showCategoryFilter(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      constraints: const BoxConstraints(maxWidth: 640),
+      builder: (context) {
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Filter by Category',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    if (_selectedCategory != null)
+                      TextButton(
+                        onPressed: () {
+                          setState(() => _selectedCategory = null);
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Clear'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (_isLoadingCategories)
+                  const Center(child: CircularProgressIndicator())
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _categoryMap.values.map((category) {
+                      final isSelected = _selectedCategory?.id == category.id;
+                      return FilterChip(
+                        label: Text(category.name),
+                        avatar: Icon(
+                          category.icon,
+                          size: 16,
+                          color: category.color,
+                        ),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedCategory = selected ? category : null;
+                          });
+                          Navigator.pop(context);
+                        },
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceVariant.withOpacity(0.3),
+                        selectedColor: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer,
+                        checkmarkColor: Theme.of(
+                          context,
+                        ).colorScheme.onPrimaryContainer,
+                      );
+                    }).toList(),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // Shows the sorting modal bottom sheet
@@ -496,33 +681,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       constraints: const BoxConstraints(maxWidth: 640),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Sort by', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
-              // Map all enum values to RadioListTiles
-              ...ProductSort.values.map((sort) {
-                return RadioListTile<ProductSort>(
-                  title: Text(_getSortName(sort)),
-                  value: sort,
-                  groupValue: _selectedSort, // Uses the state variable
-                  onChanged: (ProductSort? value) {
-                    if (value != null) {
-                      setState(() {
-                        _selectedSort = value;
-                      });
-                      Navigator.pop(context);
-                    }
-                  },
-                  contentPadding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                );
-              }).toList(),
-            ],
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Sort by', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 16),
+                // Map all enum values to RadioListTiles
+                ...ProductSort.values.map((sort) {
+                  return RadioListTile<ProductSort>(
+                    title: Text(_getSortName(sort)),
+                    value: sort,
+                    groupValue: _selectedSort, // Uses the state variable
+                    onChanged: (ProductSort? value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedSort = value;
+                        });
+                        Navigator.pop(context);
+                      }
+                    },
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  );
+                }).toList(),
+              ],
+            ),
           ),
         );
       },
@@ -563,8 +750,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           content: const Text('Product deleted'),
           behavior: SnackBarBehavior.floating,
           duration: Duration(milliseconds: 500),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     }

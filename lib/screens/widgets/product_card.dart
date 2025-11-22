@@ -1,21 +1,23 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:pao_tracker/models/product_item.dart';
+import 'package:pao_tracker/models/category.dart';
 import 'package:pao_tracker/utils/colors.dart';
 
 class ProductCard extends StatelessWidget {
   final ProductItem product;
+  final Category? category;
   final VoidCallback onTap;
 
   const ProductCard({
     super.key,
     required this.product,
+    this.category,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    // UPDATED: Pass context to _getExpiryStatus
     final expiryStatus = _getExpiryStatus(product.remainingDays, context);
 
     return Card(
@@ -74,6 +76,34 @@ class ProductCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
+                    // Category Indicator (if not shown in placeholder)
+                    if (category != null &&
+                        (product.photoPath != null &&
+                            product.photoPath!.isNotEmpty)) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            category!.icon,
+                            size: 12,
+                            color: category!.color,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              category!.name,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -105,14 +135,17 @@ class ProductCard extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceVariant,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               product.label,
                               style: TextStyle(
-                                color:
-                                    Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                                 fontWeight: FontWeight.w500,
                                 fontSize: 12,
                               ),
@@ -162,7 +195,7 @@ class ProductCard extends StatelessWidget {
         return _buildPlaceholder(context, expiryStatus, size, borderRadius);
       }
     } else {
-      // No photo, show the original status indicator
+      // No photo, show the original status indicator OR category icon
       return _buildPlaceholder(context, expiryStatus, size, borderRadius);
     }
   }
@@ -174,18 +207,18 @@ class ProductCard extends StatelessWidget {
     double size,
     BorderRadius borderRadius,
   ) {
+    // If we have a category, use its color and icon
+    final bgColor =
+        category?.color.withOpacity(0.15) ??
+        expiryStatus.color.withOpacity(0.15);
+    final iconColor = category?.color ?? expiryStatus.color;
+    final iconData = category?.icon ?? expiryStatus.icon;
+
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        color: expiryStatus.color.withOpacity(0.15),
-        borderRadius: borderRadius,
-      ),
-      child: Icon(
-        expiryStatus.icon,
-        color: expiryStatus.color,
-        size: 28, // Slightly larger icon for the larger box
-      ),
+      decoration: BoxDecoration(color: bgColor, borderRadius: borderRadius),
+      child: Icon(iconData, color: iconColor, size: 28),
     );
   }
 
@@ -209,7 +242,6 @@ class ProductCard extends StatelessWidget {
         icon: Icons.warning_amber_rounded,
       );
     } else if (remainingDays <= 30) {
-      // Use a less "urgent" color for 8-30 days
       return _ExpiryStatus(
         message: '$remainingDays days left',
         color: Theme.of(context).colorScheme.primary,

@@ -2,8 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/product_item.dart';
+import '../models/category.dart';
 import '../providers/product_provider.dart';
-// Kept for semantic colors (expired, warning, success)
+import '../data/database_helper.dart';
+
 import '../utils/colors.dart';
 import 'add_edit_screen.dart';
 
@@ -138,7 +140,6 @@ class DetailScreen extends ConsumerWidget {
               updatedProduct.favorite
                   ? 'Added to favorites'
                   : 'Removed from favorites',
-                 
             ),
             duration: Duration(milliseconds: 500),
             behavior: SnackBarBehavior.floating,
@@ -158,7 +159,6 @@ class DetailScreen extends ConsumerWidget {
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           duration: Duration(milliseconds: 500),
-
         ),
       );
     }
@@ -367,6 +367,33 @@ class _ProductDetailContent extends ConsumerWidget {
         // Restyled info cards to be side-by-side
         Column(
           children: [
+            // Category Card (New)
+            if (product.categoryId != null)
+              FutureBuilder<List<Category>>(
+                future: DatabaseHelper.instance.getAllCategories(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const SizedBox.shrink();
+                  final category = snapshot.data!.firstWhere(
+                    (c) => c.id == product.categoryId,
+                    orElse: () => Category(
+                      id: 'unknown',
+                      name: 'Unknown',
+                      iconCodepoint: Icons.help_outline.codePoint,
+                      colorValue: Colors.grey.value,
+                    ),
+                  );
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: _InfoCard(
+                      icon: category.icon,
+                      title: 'Category',
+                      value: category.name,
+                      color: category.color,
+                    ),
+                  );
+                },
+              ),
+
             if (product.label.isNotEmpty) ...[
               _InfoCard(
                 icon: Icons.label_outlined,
@@ -520,7 +547,7 @@ class _ProductDetailContent extends ConsumerWidget {
           const SnackBar(
             content: Text('Product deleted successfully'),
             behavior: SnackBarBehavior.floating,
-            duration: Duration(milliseconds: 500),// <- shorter time
+            duration: Duration(milliseconds: 500), // <- shorter time
           ),
         );
       }

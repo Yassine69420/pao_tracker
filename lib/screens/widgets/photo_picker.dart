@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-// import 'package:pao_tracker/utils/colors.dart'; // No longer needed
 
 class PhotoPicker extends StatefulWidget {
   final String? photoPath;
@@ -42,7 +41,6 @@ class _PhotoPickerState extends State<PhotoPicker> {
           width: 160,
           height: 160,
           decoration: BoxDecoration(
-            // --- UPDATED: Use theme colors ---
             color: colorScheme.surfaceVariant,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: colorScheme.outline, width: 1.5),
@@ -60,19 +58,19 @@ class _PhotoPickerState extends State<PhotoPicker> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            // --- UPDATED: Use theme colors ---
                             color: colorScheme.surface.withOpacity(0.9),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             Icons.edit,
                             size: 20,
-                            // --- UPDATED: Use theme colors ---
+
                             color: colorScheme.primary,
                           ),
                         ),
                       ),
-                      if (widget.onRemove != null) // Only show remove if callback is provided
+                      if (widget.onRemove !=
+                          null) // Only show remove if callback is provided
                         Positioned(
                           top: 8,
                           right: 8,
@@ -81,14 +79,13 @@ class _PhotoPickerState extends State<PhotoPicker> {
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                // --- UPDATED: Use theme colors ---
                                 color: colorScheme.error.withOpacity(0.95),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
                                 Icons.close,
                                 size: 20,
-                                // --- UPDATED: Use theme colors ---
+
                                 color: colorScheme.onError,
                               ),
                             ),
@@ -103,14 +100,13 @@ class _PhotoPickerState extends State<PhotoPicker> {
                     Icon(
                       Icons.add_photo_alternate_outlined,
                       size: 44,
-                      // --- UPDATED: Use theme colors ---
+
                       color: colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(height: 10),
                     Text(
                       'Add Photo',
                       style: TextStyle(
-                        // --- UPDATED: Use theme colors ---
                         color: colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
                       ),

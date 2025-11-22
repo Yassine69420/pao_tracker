@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pao_tracker/utils/colors.dart';
 import '../models/product_item.dart';
+import '../models/category.dart';
 import '../providers/product_provider.dart';
+import '../data/database_helper.dart';
 
 class StatisticsScreen extends ConsumerWidget {
   const StatisticsScreen({super.key});
@@ -141,6 +143,80 @@ class StatisticsScreen extends ConsumerWidget {
 
           const SizedBox(height: 18),
 
+          // --- NEW: Category Breakdown ---
+          Text(
+            'Products by Category',
+            style: textTheme.titleLarge?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FutureBuilder<List<Category>>(
+            future: DatabaseHelper.instance.getAllCategories(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final categories = snapshot.data!;
+              final categoryCounts = <String, int>{};
+
+              // Initialize counts
+              for (var c in categories) {
+                categoryCounts[c.id] = 0;
+              }
+              // Also track products with no category or unknown category
+              int unknownCount = 0;
+
+              for (var p in products) {
+                if (p.categoryId != null &&
+                    categoryCounts.containsKey(p.categoryId)) {
+                  categoryCounts[p.categoryId!] =
+                      categoryCounts[p.categoryId!]! + 1;
+                } else {
+                  unknownCount++;
+                }
+              }
+
+              // Sort categories by count desc
+              final sortedCategories = categories.toList()
+                ..sort(
+                  (a, b) =>
+                      categoryCounts[b.id]!.compareTo(categoryCounts[a.id]!),
+                );
+
+              return Column(
+                children: [
+                  ...sortedCategories
+                      .where((c) => categoryCounts[c.id]! > 0)
+                      .map((c) {
+                        return _categoryRow(
+                          context,
+                          c,
+                          categoryCounts[c.id]!,
+                          totalProducts,
+                        );
+                      }),
+                  if (unknownCount > 0)
+                    _categoryRow(
+                      context,
+                      Category(
+                        id: 'unknown',
+                        name: 'Uncategorized',
+                        iconCodepoint: Icons.help_outline.codePoint,
+                        colorValue: Colors.grey.value,
+                      ),
+                      unknownCount,
+                      totalProducts,
+                    ),
+                ],
+              );
+            },
+          ),
+
+          const SizedBox(height: 18),
+
           // Most common labels
           Text(
             'Most Common Labels',
@@ -227,7 +303,11 @@ class StatisticsScreen extends ConsumerWidget {
   }
 
   Widget _statusCard(
-      BuildContext context, int safe, int expiring, int expired) {
+    BuildContext context,
+    int safe,
+    int expiring,
+    int expired,
+  ) {
     // --- NEW: Get theme ---
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -330,7 +410,12 @@ class StatisticsScreen extends ConsumerWidget {
   }
 
   Widget _legendItem(
-      BuildContext context, Color color, String title, int count, double pct) {
+    BuildContext context,
+    Color color,
+    String title,
+    int count,
+    double pct,
+  ) {
     // --- NEW: Get theme ---
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -371,6 +456,64 @@ class StatisticsScreen extends ConsumerWidget {
     );
   }
 
+  Widget _categoryRow(
+    BuildContext context,
+    Category category,
+    int count,
+    int total,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final pct = total == 0 ? 0.0 : (count / total * 100);
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      color: colorScheme.surfaceVariant.withOpacity(0.12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: category.color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(category.icon, size: 20, color: category.color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                category.name,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              '$count',
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${pct.toStringAsFixed(0)}%',
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _labelRow(BuildContext context, String label, int count, int total) {
     // --- NEW: Get theme ---
     final colorScheme = Theme.of(context).colorScheme;
@@ -393,6 +536,7 @@ class StatisticsScreen extends ConsumerWidget {
                 color: colorScheme.secondaryContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
+              constraints: const BoxConstraints(maxWidth: 120), // Limit width
               child: Text(
                 label,
                 style: TextStyle(
@@ -400,15 +544,18 @@ class StatisticsScreen extends ConsumerWidget {
                   color: colorScheme.onSecondaryContainer,
                   fontWeight: FontWeight.w700,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              '$count items',
-              // --- UPDATED: Use theme color ---
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            Expanded(
+              child: Text(
+                '$count items',
+                // --- UPDATED: Use theme color ---
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const Spacer(),
             Text(
               '${pct.toStringAsFixed(0)}%',
               style: TextStyle(
@@ -441,18 +588,18 @@ class StatisticsScreen extends ConsumerWidget {
           Text(
             'No Statistics Yet',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  // --- UPDATED: Use theme color ---
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
+              // --- UPDATED: Use theme color ---
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             'Add some products to see your stats.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  // --- UPDATED: Use theme color ---
-                  color: colorScheme.onSurfaceVariant.withOpacity(0.75),
-                ),
+              // --- UPDATED: Use theme color ---
+              color: colorScheme.onSurfaceVariant.withOpacity(0.75),
+            ),
           ),
         ],
       ),

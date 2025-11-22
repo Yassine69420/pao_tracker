@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-// import 'package:pao_tracker/utils/colors.dart'; // No longer needed
+
 
 class PAOOptions extends StatelessWidget {
   final List<int> valuesInMonths;
@@ -15,10 +15,10 @@ class PAOOptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // --- NEW: Get theme ---
+ 
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Map months to slider index
+
     final currentIndex = selectedMonths != null
         ? valuesInMonths.indexOf(selectedMonths!)
         : 0;
@@ -47,7 +47,7 @@ class PAOOptions extends StatelessWidget {
           onChanged: (value) {
             onSelectedMonths(valuesInMonths[value.round()]);
           },
-          // --- UPDATED: Use theme colors ---
+         
           activeColor: colorScheme.secondary,
           inactiveColor: colorScheme.surfaceVariant,
         ),

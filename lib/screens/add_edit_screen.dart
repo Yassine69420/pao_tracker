@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/product_item.dart';
+import '../models/category.dart';
 import 'package:pao_tracker/screens/widgets/photo_picker.dart';
 import 'package:pao_tracker/screens/widgets/pao_options.dart';
 import 'package:pao_tracker/screens/widgets/favorite_button.dart';
-// REMOVED: No longer need AppColors directly
-// import '../utils/colors.dart';
+
 import '../providers/product_provider.dart';
 import '../data/database_helper.dart';
 
-// --- NEW: Import app.dart to get the themeNotifier ---
 import '../app.dart';
 
 class AddEditScreen extends ConsumerStatefulWidget {
@@ -37,6 +36,9 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
   // Keep last selected PAO in months for convenience
   int? _selectedPaoMonths;
 
+  List<Category> _categories = [];
+  String? _selectedCategoryId;
+
   @override
   void initState() {
     super.initState();
@@ -50,10 +52,8 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
       _favorite = widget.product!.favorite;
       _isOpened = widget.product!.isOpened;
 
-      if (!_isOpened) {
-        // If not opened, the stored expiryDate IS the unopened one
-        _unopenedExpiryDate = widget.product!.expiryDate;
-      }
+      // --- FIXED: Always set unopened expiry date from existing product ---
+      _unopenedExpiryDate = widget.product!.expiryDate;
 
       // Try to parse label like "12M"
       final match = RegExp(
@@ -63,6 +63,19 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
       if (match != null) {
         _selectedPaoMonths = int.tryParse(match.group(1)!);
       }
+      _selectedCategoryId = widget.product!.categoryId;
+    }
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final categories = await DatabaseHelper.instance.getAllCategories();
+    if (mounted) {
+      setState(() {
+        _categories = categories;
+        // If creating a new product and no category selected, maybe default to 'Other' or null?
+        // For now, we leave it null unless user selects one.
+      });
     }
   }
 
@@ -151,6 +164,44 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                   ),
                   textCapitalization: TextCapitalization.words,
                 ),
+                const SizedBox(height: 12),
+
+                // Category Dropdown
+                DropdownButtonFormField<String>(
+                  value: _selectedCategoryId,
+                  decoration: InputDecoration(
+                    label: const Text('Category'),
+                    prefixIcon: const Icon(Icons.category_outlined),
+                    filled: true,
+                    fillColor: colorScheme.surfaceVariant,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: _categories.map((cat) {
+                    return DropdownMenuItem(
+                      value: cat.id,
+                      child: Row(
+                        children: [
+                          Icon(cat.icon, size: 20, color: cat.color),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              cat.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedCategoryId = value;
+                    });
+                  },
+                  validator: (value) => null, // Optional
+                ),
                 const SizedBox(height: 20),
 
                 // --- NEW: Unopened Expiry Date Field ---
@@ -219,8 +270,8 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        fillColor: MaterialStateProperty.resolveWith((states) {
-                          if (states.contains(MaterialState.selected)) {
+                        fillColor: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.selected)) {
                             // --- UPDATED: Use theme color ---
                             return colorScheme.secondary; // checked color
                           }
@@ -436,11 +487,24 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
   // --- NEW: Date Picker for Unopened Expiry ---
   Future<void> _selectUnopenedExpiryDate() async {
     final now = DateTime.now();
+
+    // Allow a reasonable range in the past so previously saved expiry dates (even if past)
+    // are still selectable when editing an existing product.
+    final firstDate = DateTime(2000);
+    final lastDate = DateTime(now.year + 10);
+
+    // Use stored value if present; otherwise default to today.
+    DateTime initial = _unopenedExpiryDate ?? now;
+
+    // Clamp initial so it's within firstDate..lastDate (required by showDatePicker)
+    if (initial.isBefore(firstDate)) initial = firstDate;
+    if (initial.isAfter(lastDate)) initial = lastDate;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _unopenedExpiryDate ?? now, // start from today
-      firstDate: now, // can't pick past dates
-      lastDate: DateTime(now.year + 10), // 10 years in the future
+      initialDate: initial,
+      firstDate: firstDate,
+      lastDate: lastDate,
       builder: (context, child) =>
           Theme(data: Theme.of(context), child: child!),
     );
@@ -528,6 +592,7 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
           photoPath: _photoPath,
           favorite: _favorite,
           notes: notes.isEmpty ? null : notes,
+          categoryId: _selectedCategoryId,
         );
 
         await ref.read(productListProvider.notifier).update(updated);
@@ -555,6 +620,7 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
           photoPath: _photoPath,
           favorite: _favorite,
           notes: notes.isEmpty ? null : notes,
+          categoryId: _selectedCategoryId,
         );
 
         await ref.read(productListProvider.notifier).create(newProduct);
